@@ -1,11 +1,11 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0
-Bump rationale (MINOR): Full restructure into the enterprise "Engineering Law" format.
-  No principle removed or weakened; guidance materially EXPANDED — added Document Metadata,
-  Purpose & Scope (bounded contexts), Technology Stack table, Naming Conventions table, and a
-  mandatory "Violation:" clause on every law. Underlying rules are preserved and hardened.
+Version change: 1.1.0 → 1.1.1
+Bump rationale (PATCH): Non-semantic refresh. Re-ratified under the enterprise "Engineering Law"
+  format with no change to any law, principle, or governance rule. Only the Last Amended date was
+  advanced to the date of re-issue (2026-06-25). All mandates, "Violation:" clauses, and section
+  ordering are preserved verbatim. No principle added, removed, or weakened.
 
 Sections (this version, enforced order):
   1. SYNC IMPACT REPORT (this HTML comment)
@@ -35,6 +35,7 @@ Templates / artifacts:
   ✅ .specify/templates/spec-template.md   — no new mandatory spec sections introduced.
   ✅ .specify/templates/tasks-template.md  — testing/observability/security/error categories align.
   ✅ .specify/templates/checklist-template.md — no change required.
+  ✅ .specify/templates/constitution-template.md — source template; structure honored.
   ⚠ README.md / docs/quickstart.md — absent from repo; create consistent with this law if introduced.
 
 Follow-up TODOs: none.
@@ -47,10 +48,10 @@ Follow-up TODOs: none.
 | Field | Value |
 |-------|-------|
 | **Title** | Daily Expense Application — Engineering Constitution ("The Law") |
-| **Version** | 1.1.0 |
+| **Version** | 1.1.1 |
 | **Status** | ACTIVE — RATIFIED |
 | **Ratified** | 2026-06-24 |
-| **Last Amended** | 2026-06-24 |
+| **Last Amended** | 2026-06-25 |
 | **Authority** | Supersedes all team conventions, tribal knowledge, and undocumented practice. |
 | **Amendment Process** | Amendments are made ONLY via pull request that states the change, its rationale, and migration impact, and is approved by the maintainers. Versioning is semantic: MAJOR = principle removal/redefinition; MINOR = new law/section or expanded guidance; PATCH = clarification. **Violation:** Any change to this document merged without an approving PR and a version bump is reverted on sight. |
 
@@ -264,4 +265,4 @@ this document prevails.
 - **Runtime guidance.** Agent and contributor guidance files MUST remain consistent with this document
   and are updated in the same change that amends a law.
 
-**Version**: 1.1.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-24
+**Version**: 1.1.1 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-25

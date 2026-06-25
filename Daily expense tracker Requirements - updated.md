@@ -1,9 +1,13 @@
 **Daily Expense Application — Functional Requirements & Standards**
 
+---
+
 **1\. Functional Requirements**
 
 1.1 User Management
 
+* User Type: General User  
+* Geography: India (The system must support INR currency, Indian locale settings, Indian date formats, and Indian payment methods such as UPI.)  
 * A user must be able to register with their full name, email address, and password.  
 * The system must send a verification email upon registration; the account remains inactive until verified.  
 * A user must be able to log in with email and password.  
@@ -14,13 +18,17 @@
 * A user must be able to delete their own account. Deletion must remove all associated data.  
 * A user must be able to export all their data as a single downloadable file.
 
+---
+
 1.2 Categories
 
-* The system must provide a set of default categories (e.g. Food, Transport, Housing, Health, Entertainment, Shopping, Education, Savings, Other) that are available to all users and cannot be deleted.  
+* The system must provide a set of default categories (e.g. Food, Transport, Housing, Health, Entertainment, Shopping, Education, Savings, Loans, Credit & Debit, Third Party Payments & Other) that are available to all users and cannot be deleted.  
 * A user must be able to create custom categories with a name, icon, and color.  
 * A user must be able to edit or delete their own custom categories.  
 * A category must be typed — Expense, Income, or Both.  
 * Deleting a category that has associated transactions must be prevented; the user must reassign those transactions first.
+
+---
 
 1.3 Expense Management
 
@@ -49,6 +57,8 @@
   * The import format must support an optional savings goal column. If a goal name matches an existing goal, the transaction must be linked to it. If it does not match, the row must be imported successfully but with a warning that the goal association was skipped.  
 * A user must be able to export their expenses for a given date range as a CSV file.
 
+---
+
 1.4 Recurring Expenses
 
 * When adding an expense, a user must be able to mark it as recurring with a recurrence pattern: Daily, Weekly, Monthly, or Yearly.  
@@ -57,6 +67,8 @@
 * A user must be able to edit a recurring expense with a choice of: edit only this occurrence, or edit this and all future occurrences.  
 * A user must be able to delete a recurring expense with a choice of: delete only this occurrence, or delete this and all future occurrences.  
 * A user must be able to view all recurring expense templates and their schedules.
+
+---
 
 1.5 Savings Goals
 
@@ -85,6 +97,8 @@
 * A user must be able to pause a goal. A paused goal must be excluded from projected completion calculations and from the active goals list, but its contribution history must be fully preserved.  
 * The dashboard must include a Goals section showing all active goals with their name, progress bar, contributed amount, target amount, and target date if set.
 
+---
+
 1.6 Income Tracking
 
 * A user must be able to add an income entry with: amount, date, category, source name, and description.  
@@ -92,11 +106,15 @@
 * A user must be able to view, edit, and delete income entries.  
 * Edit and delete of recurring income must follow the same "this occurrence / this and future" pattern as expenses.
 
+---
+
 1.7 Tags
 
 * A user must be able to create, rename, and delete personal tags.  
 * Tags can be applied to any expense for cross-category grouping (e.g. "vacation", "office").  
 * Deleting a tag must remove it from all associated expenses but must not delete the expenses.
+
+---
 
 1.8 Budgets
 
@@ -107,6 +125,8 @@
 * The system must notify the user via in-app alert and email when a budget is fully exceeded.  
 * Each alert must be sent only once per period per threshold — no repeated notifications for the same breach.  
 * A user must be able to view the current status of each budget: amount set, amount spent, amount remaining, and percentage used.
+
+---
 
 1.9 Dashboard
 
@@ -121,6 +141,8 @@
 * The dashboard must display the top 5 spending categories for the current month.  
 * The dashboard must display any active budget alerts.
 
+---
+
 1.10 Reports
 
 * A user must be able to generate a Monthly Report for any past month.  
@@ -134,6 +156,8 @@
   * List of all transactions in the period  
 * A user must be able to download any report as a PDF or CSV file.
 
+---
+
 1.11 Notifications
 
 * The system must send a weekly spending digest email every Monday summarising the prior week's total expenses vs. income (opt-in, default off).  
@@ -141,6 +165,30 @@
 * Recurring expense/income generation failures must surface as an in-app notification.  
 * A user must be able to view all unread notifications in a notification center.  
 * A user must be able to mark notifications as read individually or all at once.
+
+1.12 UX Recommendations
+
+* Use a step-by-step wizard with progress tracking.  
+* Auto-save application drafts.  
+* Pre-fill customer information from profile data.  
+* Show eligibility checks in real time.  
+* Provide clear validation messages.  
+* Display submission confirmation and reference number.
+
+1.13 Responsive Design
+
+* Responsive Design  
+* Ensure usability across desktop, tablet, and mobile.  
+* Adapt layouts for smaller screens.
+
+1.14 Accessibility
+
+* The application must support keyboard navigation.  
+* The application must support screen readers.  
+* The application must provide accessible color contrast.  
+* The application must support text resizing without loss of functionality.  
+* Forms must provide accessible error messages and guidance.  
+* Images and icons must include alternative text where applicable.
 
 **2\. Standardization Requirements**
 
@@ -162,6 +210,8 @@
 * API documentation must be auto-generated and always up to date. No manual documentation.  
 * DTOs must be used for all API input and output. Entities must never be serialized directly to the response.
 
+---
+
 2.2 Security
 
 * Passwords must be hashed using BCrypt with a minimum cost factor of 12\. Plain-text passwords must never appear in logs, responses, or the database.  
@@ -172,6 +222,8 @@
 * File uploads must be validated for type and size. Only image formats (JPEG, PNG, WEBP) are accepted for receipts. Maximum file size is 5 MB.  
 * Sensitive configuration (DB password, JWT secret, MinIO credentials, SMTP password) must never be hardcoded. They must come from environment variables or a secrets file excluded from version control.
 
+---
+
 2.3 Code Quality
 
 * Business logic must live in the service layer. Controllers must only handle request parsing and response shaping. Repositories must only handle data access.  
@@ -181,12 +233,16 @@
 * No hardcoded string literals for constants (status values, enum strings, error messages). Define them as enums or constants.  
 * Unused imports, commented-out code, and TODO comments must not be merged to the main branch.
 
+---
+
 2.4 Testing
 
 * Every service class must have a corresponding unit test class. Business rules must be tested in isolation using mocks.  
 * Every API endpoint must have an integration test that starts the real application with a real database (use Testcontainers).  
 * Tests must cover both the happy path and key failure cases (invalid input, unauthorized access, not found).  
 * Tests must be independent — no test must rely on the state left by another test.
+
+---
 
 2.5 Logging & Observability
 
@@ -197,11 +253,15 @@
 * Application health must be exposed at /actuator/health for load-balancer probing.  
 * Key business metrics must be exposed for monitoring: number of expenses created, active users, budget alerts sent, report generation time.
 
+---
+
 2.6 Database
 
 * Every table must have created\_at and updated\_at timestamps, populated automatically.  
 * Queries that filter or join on a column must have an index on that column.  
 * Bulk queries (reports, exports) must not load all records into memory. Use pagination or streaming.
+
+---
 
 2.9 Frontend Standards
 
@@ -211,4 +271,6 @@
 * Loading, error, and empty states must be handled explicitly for every data-fetching component — no component may render with undefined data.  
 * TypeScript strict mode must be enabled. any type is not permitted.  
 * No hardcoded API base URLs in components. All configuration comes from environment variables.
+
+---
 
