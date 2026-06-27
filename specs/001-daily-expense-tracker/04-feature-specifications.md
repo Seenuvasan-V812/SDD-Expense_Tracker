@@ -9,7 +9,7 @@
 | **Created** | 2026-06-25 |
 | **Author Role** | QA Automation Architect |
 | **Source Inputs** | `03-requirement-catalogue.md`, `02-glossary.md` |
-| **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) (v1.1.1) |
+| **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) (v1.1.2) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) |
 | **Traceability Authority** | [Requirement Catalogue](./03-requirement-catalogue.md) |
 
@@ -535,6 +535,10 @@ Feature: Budget Threshold Breach Alerts
   # Delivery and ownership
   # ---------------------------------------------------------------------------
 
+  # NOTE (BDD-002): REQ-NOTIF-004 and REQ-NOTIF-005 cover Notification Center read/delete behaviour
+  # which belongs to the Notification bounded context (Phase 2 — deferred). The scenario below
+  # validates Phase 1 budget-service outbox publication and the in-service alert deduplication
+  # (BUD-INV-5); the Notification Center UI interactions are out of Phase 1 scope.
   @happy-path @REQ-NOTIF-004 @REQ-NOTIF-005
   Scenario: Budget Alerts appear in the Notification Center and can be marked read
     Given a Budget Alert has been delivered to the General User
@@ -586,10 +590,688 @@ Feature: Budget Threshold Breach Alerts
 4. **Once-per-period alerting.** Budget scenarios explicitly cover REQ-BUD-006 (no duplicate alerts
    per Budget Threshold per Budget Period) and counter reset at a new Budget Period, since these are
    the highest-risk regressions in alerting logic.
-5. **Scope.** Only the four requested core flows are specified here. Other catalogued requirements
-   (Categories, Tags, Income, Recurring generation, Dashboard, Reports, Data Export, Accessibility)
-   are out of scope for this document and remain anchored in `03-requirement-catalogue.md` for a
-   later BDD pass.
+5. **Scope.** §§2–5 cover the four original core flows. §§7–13 (added in BDD-001 remediation pass)
+   extend coverage to all Phase 1 requirements. Income (REQ-INC), Dashboard (REQ-DASH), Reports
+   (REQ-RPT), Notifications (REQ-NOTIF beyond §5) remain Phase 2 and are out of scope here.
 6. **These are acceptance specifications, not implementation.** No framework, endpoint shape, or
    step-definition binding is prescribed here; HTTP status references denote expected externally
    observable outcomes per REQ-API-003.
+
+---
+
+## 7. Feature: Category Management
+
+```gherkin
+@category
+Feature: Category Management
+  As an authenticated General User
+  I want to manage Expense categories
+  So that I can organise my Expenses with meaningful classifications
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+
+  # ---------------------------------------------------------------------------
+  # Default categories
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-CAT-001
+  Scenario: Default categories are available to all users
+    When the General User lists all available Categories
+    Then the response includes a Default Category named "Savings"
+    And the response includes Default Categories for "Food", "Transport", "Housing", "Health"
+    And all Default Categories have a type of "EXPENSE", "INCOME", or "BOTH"
+
+  @failure-path @REQ-CAT-001
+  Scenario: Default category cannot be deleted
+    Given a Default Category named "Food"
+    When the General User attempts to delete the Default Category "Food"
+    Then the request is rejected
+    And the response status is 409
+
+  # ---------------------------------------------------------------------------
+  # Custom categories
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-CAT-002
+  Scenario: General User creates a Custom Category
+    When the General User creates a Custom Category with name "Gym", icon "dumbbell", color "#FF5733", and type "EXPENSE"
+    Then the response status is 201
+    And the response includes a Location header for the new Category
+    And listing Categories shows "Gym" as a Custom Category of type "EXPENSE"
+
+  @happy-path @REQ-CAT-003
+  Scenario: General User renames a Custom Category
+    Given the General User has a Custom Category named "Gym"
+    When the General User renames it to "Fitness"
+    Then the response status is 200
+    And the Category is now listed as "Fitness"
+
+  @happy-path @REQ-CAT-003
+  Scenario: General User deletes an unused Custom Category
+    Given the General User has a Custom Category named "Hobbies" with no associated Expenses
+    When the General User deletes the Custom Category "Hobbies"
+    Then the response status is 204
+    And listing Categories no longer includes "Hobbies"
+
+  @failure-path @REQ-CAT-005
+  Scenario: Deleting a Category with associated Expenses is rejected
+    Given the General User has a Custom Category "Gym" linked to one or more Expenses
+    When the General User attempts to delete the Custom Category "Gym"
+    Then the request is rejected
+    And the response status is 409
+    And the response body indicates the Category has associated transactions
+
+  @happy-path @REQ-CAT-004
+  Scenario: Category type constrains usage on Expenses
+    Given the General User has a Category of type "INCOME"
+    When the General User attempts to create an Expense with that Category
+    Then the request is rejected
+    And the response status is 400
+
+  @failure-path @security @REQ-SEC-003
+  Scenario: A General User cannot delete another user's Custom Category
+    Given a Custom Category owned by a different General User
+    When the authenticated General User attempts to delete that Category
+    Then the response status is 403
+    And the response status is not 404
+```
+
+---
+
+## 8. Feature: Expense List, Edit, Delete, and CSV
+
+```gherkin
+@expense @expense-management
+Feature: Expense List, Edit, Delete, and CSV Operations
+  As an authenticated General User
+  I want to manage my Expense list and import / export Expenses
+  So that I can review, correct, and share my financial records
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+    And the General User has several Expenses across different Categories and dates
+
+  # ---------------------------------------------------------------------------
+  # List, filter, sort
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-EXP-003
+  Scenario: General User views a paginated Expense list
+    When the General User requests their Expense list
+    Then the response status is 200
+    And the response contains "content", "page", "size", "totalElements", "totalPages"
+
+  @happy-path @REQ-EXP-004
+  Scenario: General User filters Expenses by date range
+    When the General User requests Expenses with filter from "2026-06-01" to "2026-06-30"
+    Then only Expenses with a date within that range are returned
+
+  @happy-path @REQ-EXP-004
+  Scenario: General User filters Expenses by Category
+    Given the General User has Expenses in Category "Food" and Category "Transport"
+    When the General User filters by Category "Food"
+    Then only Expenses in Category "Food" are returned
+
+  @happy-path @REQ-EXP-004
+  Scenario: General User filters Expenses by Payment Method
+    When the General User filters Expenses by Payment Method "UPI"
+    Then only Expenses paid via UPI are returned
+
+  @happy-path @REQ-EXP-005
+  Scenario: General User sorts Expenses by date descending
+    When the General User requests their Expense list sorted by date descending
+    Then Expenses are returned in descending date order
+
+  @happy-path @REQ-EXP-005
+  Scenario: General User sorts Expenses by amount ascending
+    When the General User requests their Expense list sorted by amount ascending
+    Then Expenses are returned in ascending amount order
+
+  # ---------------------------------------------------------------------------
+  # Edit and delete
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-EXP-006
+  Scenario: General User edits an Expense amount
+    Given the General User has an Expense with amount "500.00 INR"
+    When the General User edits the Expense amount to "750.00 INR"
+    Then the response status is 200
+    And the Expense now has amount "750.00 INR"
+
+  @happy-path @REQ-EXP-007
+  Scenario: Editing an Expense linked to a Savings Goal updates the Contribution total
+    Given the General User has an Expense of "1000.00 INR" linked to a Savings Goal with total contributed "1000.00 INR"
+    When the General User edits the Expense amount to "1500.00 INR"
+    Then the Savings Goal total contributed is updated to "1500.00 INR"
+
+  @happy-path @REQ-EXP-007
+  Scenario: General User removes Savings Goal link from an Expense
+    Given the General User has an Expense linked to a Savings Goal
+    When the General User edits the Expense to remove the Savings Goal link
+    Then the Expense becomes a regular Expense
+    And the Savings Goal's Contribution total decreases by the Expense amount
+
+  @happy-path @REQ-EXP-008
+  Scenario: General User deletes a standalone Expense
+    Given the General User has a standalone Expense
+    When the General User deletes that Expense
+    Then the response status is 204
+    And the Expense no longer appears in the Expense list
+
+  @happy-path @REQ-EXP-008
+  Scenario: Deleting an Expense linked to a Savings Goal reduces Contribution total
+    Given the General User has an Expense of "2000.00 INR" linked to a Savings Goal with total contributed "3000.00 INR"
+    When the General User deletes that Expense
+    Then the Savings Goal's total contributed is "1000.00 INR"
+
+  @failure-path @security @REQ-SEC-003
+  Scenario: A General User cannot edit another user's Expense
+    Given an Expense owned by a different General User
+    When the authenticated General User attempts to edit that Expense
+    Then the response status is 403
+    And the response status is not 404
+
+  # ---------------------------------------------------------------------------
+  # CSV import / export
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-EXP-012
+  Scenario: General User imports Expenses via CSV
+    Given the General User uploads a valid CSV file containing 3 expense rows
+    When the CSV import completes
+    Then the response status is 200
+    And the response body reports 3 rows succeeded and 0 rows failed
+    And the 3 Expenses appear in the Expense list
+
+  @happy-path @REQ-EXP-013
+  Scenario: CSV import with a matching Savings Goal name links the Expense as a Contribution
+    Given the General User has a Savings Goal named "MacBook Pro"
+    And the General User uploads a CSV with a row where the savings_goal column is "MacBook Pro"
+    When the CSV import completes
+    Then that row is imported and linked to the "MacBook Pro" Savings Goal as a Contribution
+
+  @happy-path @REQ-EXP-013
+  Scenario: CSV import with a non-matching Savings Goal name imports the row with a warning
+    Given the General User uploads a CSV with a row where the savings_goal column is "NonExistentGoal"
+    When the CSV import completes
+    Then that row is imported successfully as a regular Expense
+    And the response body includes a warning that the Savings Goal association was skipped
+
+  @failure-path @REQ-EXP-012
+  Scenario: CSV import rejects a file exceeding 10 MB
+    Given the General User uploads a CSV file larger than 10 MB
+    When the CSV import is attempted
+    Then the response status is 400
+
+  @happy-path @REQ-EXP-014
+  Scenario: General User exports Expenses for a date range as CSV
+    When the General User requests a CSV export from "2026-06-01" to "2026-06-30"
+    Then the response status is 200
+    And the response Content-Type is "text/csv"
+    And the response body contains only Expenses within the requested date range
+```
+
+---
+
+## 9. Feature: Recurring Expenses
+
+```gherkin
+@recurring
+Feature: Recurring Expenses
+  As an authenticated General User
+  I want to set up Recurring Expenses
+  So that repeating transactions are generated automatically
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+
+  # ---------------------------------------------------------------------------
+  # Create
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-REC-001
+  Scenario: General User creates a Monthly Recurring Expense
+    When the General User creates an Expense with frequency "MONTHLY" and anchor date "2026-07-01"
+    Then the response status is 201
+    And the response includes a Location header for the new Recurring Expense template
+    And the template appears in the list of Recurring Expenses
+
+  @happy-path @REQ-REC-002
+  Scenario: General User creates a Recurring Expense with a maximum occurrence count
+    When the General User creates a Recurring Expense with max_occurrences of 12
+    Then the template is saved with max_occurrences "12" and no end_date
+
+  @happy-path @REQ-REC-002
+  Scenario: General User creates a Recurring Expense with an end date
+    When the General User creates a Recurring Expense with end_date "2026-12-31"
+    Then the template is saved with end_date "2026-12-31" and no max_occurrences
+
+  @happy-path @REQ-REC-002
+  Scenario: General User creates an indefinite Recurring Expense
+    When the General User creates a Recurring Expense without an end date or max_occurrences
+    Then the template is saved without end constraints
+
+  # ---------------------------------------------------------------------------
+  # Automatic generation
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-REC-003
+  Scenario: System generates the next Occurrence on schedule
+    Given a Monthly Recurring Expense with anchor_date "2026-07-01" and no Occurrences yet
+    When the scheduler runs on or after "2026-07-01"
+    Then a new Expense Occurrence is created with date "2026-07-01" and recurringExpenseId set
+    And the template's next_run_date advances to "2026-08-01"
+
+  # ---------------------------------------------------------------------------
+  # Edit occurrence(s)
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-REC-004
+  Scenario: General User edits only this Occurrence of a Recurring Expense
+    Given a generated Occurrence Expense with id {occurrenceId} from a Monthly template
+    When the General User edits the Occurrence with scope "THIS" changing amount to "600.00 INR"
+    Then the response status is 200
+    And only the target Occurrence has amount "600.00 INR"
+    And the Recurring Expense template is unchanged
+
+  @happy-path @REQ-REC-004
+  Scenario: General User edits this Occurrence and all future Occurrences
+    Given a generated Occurrence Expense with id {occurrenceId} from a Monthly template
+    When the General User edits the Occurrence with scope "THIS_AND_FUTURE" changing amount to "800.00 INR"
+    Then the response status is 200
+    And the target Occurrence has amount "800.00 INR"
+    And a new Recurring Expense template is created with amount "800.00 INR" from the occurrence date forward
+    And the original template's end_date is set to one day before the occurrence date
+
+  # ---------------------------------------------------------------------------
+  # Delete occurrence(s)
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-REC-005
+  Scenario: General User deletes only this Occurrence
+    Given a generated Occurrence Expense with id {occurrenceId}
+    When the General User deletes the Occurrence with scope "THIS"
+    Then the response status is 204
+    And the Occurrence Expense no longer exists
+    And the Recurring Expense template and other Occurrences are unaffected
+
+  @happy-path @REQ-REC-005
+  Scenario: General User deletes this Occurrence and all future Occurrences
+    Given a generated Occurrence Expense with id {occurrenceId}
+    When the General User deletes the Occurrence with scope "THIS_AND_FUTURE"
+    Then the response status is 204
+    And the Occurrence Expense no longer exists
+    And the template's end_date is set to one day before the occurrence date
+    And no further Occurrences are generated from that date onward
+
+  @failure-path @REQ-REC-004
+  Scenario: Providing a non-occurrence ExpenseId to the recurring edit endpoint returns 400
+    Given a regular Expense (not generated from a template) with id {regularExpenseId}
+    When the General User calls PUT /recurring-expenses/{regularExpenseId}?scope=THIS
+    Then the response status is 400
+
+  # ---------------------------------------------------------------------------
+  # View list
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-REC-006
+  Scenario: General User views all Recurring Expense templates
+    When the General User requests the list of Recurring Expenses
+    Then the response status is 200
+    And the response contains the pagination envelope
+    And each entry shows the template frequency, anchor_date, next_run_date, and amount
+```
+
+---
+
+## 10. Feature: Tag Management
+
+```gherkin
+@tag
+Feature: Tag Management
+  As an authenticated General User
+  I want to create and manage Tags
+  So that I can group Expenses across different Categories
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+
+  # ---------------------------------------------------------------------------
+  # Create, rename, delete
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-TAG-001
+  Scenario: General User creates a Tag
+    When the General User creates a Tag named "vacation"
+    Then the response status is 201
+    And the Tag "vacation" appears in the Tag list
+
+  @happy-path @REQ-TAG-001
+  Scenario: General User renames a Tag
+    Given the General User has a Tag named "vacation"
+    When the General User renames it to "holiday"
+    Then the response status is 200
+    And the Tag is now listed as "holiday"
+
+  @failure-path @REQ-TAG-001
+  Scenario: Tag name must be unique per user
+    Given the General User already has a Tag named "vacation"
+    When the General User attempts to create another Tag named "vacation"
+    Then the response status is 409
+
+  # ---------------------------------------------------------------------------
+  # Apply to Expenses
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-TAG-002
+  Scenario: General User applies a Tag to an Expense across Categories
+    Given the General User has a Tag "vacation" and two Expenses in different Categories
+    When the General User applies the Tag "vacation" to both Expenses
+    Then both Expenses are associated with the Tag "vacation"
+    And filtering Expenses by Tag "vacation" returns both Expenses
+
+  # ---------------------------------------------------------------------------
+  # Delete Tag (detach from Expenses)
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-TAG-003
+  Scenario: Deleting a Tag removes it from all associated Expenses without deleting them
+    Given the General User has a Tag "vacation" applied to 2 Expenses
+    When the General User deletes the Tag "vacation"
+    Then the response status is 204
+    And the Tag "vacation" no longer exists
+    And both Expenses still exist but are no longer tagged with "vacation"
+
+  @failure-path @security @REQ-SEC-003
+  Scenario: A General User cannot delete another user's Tag
+    Given a Tag owned by a different General User
+    When the authenticated General User attempts to delete that Tag
+    Then the response status is 403
+    And the response status is not 404
+```
+
+---
+
+## 11. Feature: Savings Goal Lifecycle
+
+```gherkin
+@savings-goal @goal-lifecycle
+Feature: Savings Goal Lifecycle
+  As an authenticated General User
+  I want to create, manage, and close Savings Goals
+  So that I can track and achieve specific financial targets
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+
+  # ---------------------------------------------------------------------------
+  # Create and edit
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-GOAL-001
+  Scenario: General User creates a Savings Goal with all optional fields
+    When the General User creates a Savings Goal with name "MacBook Pro", targetAmount "150000.00 INR",
+         targetDate "2027-06-01", description "For work", icon "laptop", and color "#4A90E2"
+    Then the response status is 201
+    And the response includes a Location header for the new Savings Goal
+    And the Goal has status "ACTIVE" and totalContributed "0.00 INR"
+
+  @happy-path @REQ-GOAL-001
+  Scenario: General User creates a Savings Goal with only required fields
+    When the General User creates a Savings Goal with name "Emergency Fund" and targetAmount "50000.00 INR"
+    Then the response status is 201
+    And the Goal has targetDate absent and status "ACTIVE"
+
+  @happy-path @REQ-GOAL-002
+  Scenario: General User updates a Savings Goal's target amount
+    Given the General User has an Active Savings Goal "MacBook Pro" with targetAmount "150000.00 INR"
+    When the General User updates the targetAmount to "160000.00 INR"
+    Then the response status is 200
+    And the Goal now has targetAmount "160000.00 INR"
+
+  @happy-path @REQ-GOAL-002
+  Scenario: General User deletes a Savings Goal
+    Given the General User has a Savings Goal with no associated Expenses
+    When the General User deletes the Savings Goal
+    Then the response status is 204
+    And the Goal no longer appears in the Savings Goal list
+
+  # ---------------------------------------------------------------------------
+  # Goal list view
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-GOAL-010
+  Scenario: Active and Completed goals are shown separately in the list
+    Given the General User has one Active goal and one Completed goal
+    When the General User requests the Savings Goal list
+    Then the response includes an Active goal section and a Completed goal section
+    And each goal shows name, progress percentage, totalContributed, and targetAmount
+
+  # ---------------------------------------------------------------------------
+  # Goal lifecycle transitions
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-GOAL-011
+  Scenario: Goal auto-completes when Contributions reach Target Amount
+    Given the General User has an Active goal with targetAmount "10000.00 INR" and totalContributed "9000.00 INR"
+    When the General User records a Contribution of "1000.00 INR"
+    Then the Goal status transitions to "COMPLETED"
+    And an in-app Notification is delivered for goal completion
+
+  @happy-path @REQ-GOAL-012
+  Scenario: General User manually marks a Goal as Completed
+    Given the General User has an Active goal with totalContributed below targetAmount
+    When the General User sets the goal status to "COMPLETED"
+    Then the response status is 200
+    And the Goal status is "COMPLETED"
+
+  @happy-path @REQ-GOAL-012
+  Scenario: General User marks a Goal as Abandoned
+    Given the General User has an Active goal
+    When the General User sets the goal status to "ABANDONED"
+    Then the response status is 200
+    And the Goal status is "ABANDONED"
+    And the Contribution History is preserved
+
+  @failure-path @REQ-GOAL-012
+  Scenario: Attempting to reopen a Completed goal via the status API returns 409
+    Given the General User has a Completed goal
+    When the General User attempts to set the goal status to "ACTIVE" via the status endpoint
+    Then the response status is 409
+
+  @happy-path @REQ-GOAL-013
+  Scenario: General User pauses a goal
+    Given the General User has an Active goal
+    When the General User sets the goal status to "PAUSED"
+    Then the response status is 200
+    And the Goal status is "PAUSED"
+    And the Goal does not appear in the Active goals list
+    And the Goal's Contribution History is preserved
+
+  @happy-path @REQ-GOAL-013
+  Scenario: General User resumes a paused goal
+    Given the General User has a Paused goal
+    When the General User resumes the goal
+    Then the response status is 200
+    And the Goal status is "ACTIVE"
+
+  @failure-path @security @REQ-SEC-003
+  Scenario: A General User cannot access another user's Savings Goal
+    Given a Savings Goal owned by a different General User
+    When the authenticated General User requests that Savings Goal
+    Then the response status is 403
+    And the response status is not 404
+```
+
+---
+
+## 12. Feature: User Profile, Password Reset, and Account Management
+
+```gherkin
+@user-management
+Feature: User Profile, Password Reset, and Account Management
+  As an authenticated General User
+  I want to manage my account settings and data
+  So that I can control my profile, credentials, and personal data
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+
+  # ---------------------------------------------------------------------------
+  # Password reset (unauthenticated flow)
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-USR-007
+  Scenario: General User resets password via email link
+    Given the General User is not authenticated
+    When the General User submits a password-reset request with their registered email
+    Then the response status is 200
+    And a time-limited password-reset email is sent to that address
+    When the General User follows the reset link and submits a new password
+    Then the response status is 204
+    And the old password no longer authenticates
+
+  @failure-path @REQ-USR-007
+  Scenario: Password-reset link is single-use
+    Given the General User has already used a password-reset link once
+    When the General User attempts to use the same link again
+    Then the response status is 400
+
+  # ---------------------------------------------------------------------------
+  # Profile update
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-USR-008
+  Scenario: General User updates their profile
+    When the General User updates their name to "Ravi Kumar", timezone to "Asia/Kolkata", and locale to "en-IN"
+    Then the response status is 200
+    And the profile reflects the new name, timezone, and locale
+
+  # ---------------------------------------------------------------------------
+  # Password change
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-USR-009
+  Scenario: General User changes their password providing current password
+    When the General User submits the current password and a new password
+    Then the response status is 204
+    And all existing Refresh Tokens for the user are invalidated
+    And the user must re-authenticate with the new password
+
+  @failure-path @REQ-USR-009
+  Scenario: Password change fails if current password is wrong
+    When the General User submits an incorrect current password
+    Then the response status is 400
+
+  # ---------------------------------------------------------------------------
+  # Account deletion
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-USR-010
+  Scenario: General User deletes their account
+    When the General User submits a delete-account request
+    Then the response status is 204
+    And the account is marked DELETED
+    And all associated Expenses, Goals, Budgets, and Tokens are removed
+
+  @failure-path @REQ-USR-010
+  Scenario: Deleted account cannot be authenticated
+    Given the General User has deleted their account
+    When a login is attempted with the deleted account's credentials
+    Then the response status is 401
+
+  # ---------------------------------------------------------------------------
+  # Data export
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-USR-011
+  Scenario: General User requests a Data Export
+    When the General User requests a Data Export
+    Then the response status is 202
+    And the system initiates export assembly
+    When the export is ready
+    Then the General User can download the export file via a time-limited URL
+
+  @failure-path @security @REQ-SEC-003
+  Scenario: A General User cannot access another user's profile or export
+    Given a profile or export owned by a different General User
+    When the authenticated General User requests that resource
+    Then the response status is 403
+    And the response status is not 404
+```
+
+---
+
+## 13. Feature: Budget Creation
+
+```gherkin
+@budget @budget-creation
+Feature: Budget Creation
+  As an authenticated General User
+  I want to set Budgets for Categories and overall spending
+  So that I can control my expenditure within a Budget Period
+
+  Background:
+    Given an active General User is authenticated with a valid Access Token
+
+  # ---------------------------------------------------------------------------
+  # Create
+  # ---------------------------------------------------------------------------
+
+  @happy-path @REQ-BUD-001
+  Scenario: General User creates a Category Budget for a Monthly period
+    Given the General User has a Category "Food"
+    When the General User creates a Budget for Category "Food" with limit "10000.00 INR" and period "MONTHLY"
+    Then the response status is 201
+    And the response includes a Location header for the new Budget
+    And the Budget is active and shows spent "0.00 INR" and remaining "10000.00 INR"
+
+  @happy-path @REQ-BUD-001
+  Scenario: General User creates an Overall Budget for a Weekly period
+    When the General User creates an Overall Budget with limit "5000.00 INR" and period "WEEKLY"
+    Then the response status is 201
+    And the Overall Budget is active with effectiveLimit "5000.00 INR"
+
+  @failure-path @REQ-BUD-001
+  Scenario: Budget with zero limit is rejected
+    When the General User attempts to create a Budget with limit "0.00 INR"
+    Then the response status is 400
+
+  @failure-path @security @REQ-SEC-003
+  Scenario: A General User cannot view another user's Budget
+    Given a Budget owned by a different General User
+    When the authenticated General User requests that Budget
+    Then the response status is 403
+    And the response status is not 404
+```
+
+---
+
+## 14. Updated Coverage Summary
+
+### 14.1 Trace IDs covered by this document (all Phase 1)
+
+| Flow | Trace IDs exercised |
+|------|---------------------|
+| **Registration & Auth** | REQ-USR-001..006, REQ-SEC-001..004, REQ-API-001, REQ-API-007 |
+| **Expense Creation & Receipts** | REQ-EXP-001, REQ-EXP-002, REQ-EXP-009..011, REQ-USR-002, REQ-SEC-003, REQ-SEC-005, REQ-API-007 |
+| **Savings Goal Contributions** | REQ-GOAL-003..009, REQ-GOAL-011, REQ-GOAL-013, REQ-EXP-007, REQ-NOTIF-002, REQ-SEC-003, REQ-API-007 |
+| **Budget Threshold Breaches** | REQ-BUD-002..007, REQ-NOTIF-002, REQ-NOTIF-004, REQ-NOTIF-005, REQ-SEC-003 |
+| **Category Management** | REQ-CAT-001..005, REQ-SEC-003 |
+| **Expense List, Edit, Delete, CSV** | REQ-EXP-003..008, REQ-EXP-012..014, REQ-SEC-003 |
+| **Recurring Expenses** | REQ-REC-001..006 |
+| **Tag Management** | REQ-TAG-001..003, REQ-SEC-003 |
+| **Savings Goal Lifecycle** | REQ-GOAL-001..002, REQ-GOAL-010..013, REQ-SEC-003 |
+| **User Account Management** | REQ-USR-007..011, REQ-SEC-003 |
+| **Budget Creation** | REQ-BUD-001, REQ-SEC-003 |
+
+### 14.2 Phase 1 requirements NOT covered (deferred Phase 2 or out of scope)
+
+| Requirement set | Reason |
+|-----------------|--------|
+| REQ-INC-001..004 | Income bounded context — Phase 2 |
+| REQ-DASH-001..006 | Reporting & Analytics — Phase 2 |
+| REQ-RPT-001..005 | Reporting & Analytics — Phase 2 |
+| REQ-NOTIF-001..005 (beyond alerting) | Notification bounded context — Phase 2 |
+| REQ-GOAL-014 | Blocked by Dashboard deferral (O-01/O-07) |

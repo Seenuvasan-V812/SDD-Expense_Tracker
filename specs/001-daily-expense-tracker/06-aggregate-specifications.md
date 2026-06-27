@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Senior Java / Spring Backend Architect |
-| **Source Inputs** | `05-domain-model.md`, `.specify/memory/constitution.md` (v1.1.1) |
+| **Source Inputs** | `05-domain-model.md`, `.specify/memory/constitution.md` (v1.1.2) |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) |
 | **Domain Authority** | [Domain Model Specification](./05-domain-model.md) |
@@ -391,6 +391,7 @@ Ports — never a shared repository or schema (AL-1/AL-2).
 | `Expense` | CreateExpense, UpdateExpenseDetails, AttachReceipt, RemoveReceipt, LinkExpenseToSavingsGoal, UnlinkExpenseFromSavingsGoal, ApplyTags, RemoveTag, DeleteExpense |
 | `SavingsGoal` | CreateSavingsGoal, UpdateSavingsGoal, RecordContribution, LinkExistingExpense, ReconcileContribution, PauseSavingsGoal, ResumeSavingsGoal, MarkGoalCompleted, MarkGoalAbandoned, DeleteSavingsGoal |
 | `Budget` | CreateBudget, UpdateBudget, ActivateBudget, DeactivateBudget, EnableRollover, DisableRollover, RecordSpendingObservation, RollOverBudgetPeriod, DeleteBudget |
+| `RecurringExpense` (occurrence ops) | EditOccurrenceCommand, EditFromOccurrenceForwardCommand, DeleteOccurrenceCommand, DeleteFromOccurrenceForwardCommand |
 
 ### 6.2 Events per aggregate
 
@@ -399,6 +400,7 @@ Ports — never a shared repository or schema (AL-1/AL-2).
 | `Expense` | ExpenseCreated, ExpenseUpdated, ExpenseDeleted, ExpenseLinkedToSavingsGoal, ExpenseUnlinkedFromSavingsGoal, ContributionAmountAdjusted, ReceiptAttached, ReceiptRemoved, ExpenseTagsChanged |
 | `SavingsGoal` | SavingsGoalCreated, SavingsGoalUpdated, ContributionRecorded, ContributionAdjusted, ContributionRemoved, SavingsGoalCompleted, SavingsGoalReopened, SavingsGoalPaused, SavingsGoalResumed, SavingsGoalAbandoned, SavingsGoalDeleted |
 | `Budget` | BudgetCreated, BudgetUpdated, BudgetActivated, BudgetDeactivated, BudgetRolloverConfigChanged, BudgetSpendingUpdated, BudgetThresholdReached, BudgetExceeded, BudgetPeriodRolledOver, BudgetDeleted |
+| `RecurringExpense` (occurrence ops) | OccurrenceEditedEvent, FutureOccurrencesTruncatedEvent, OccurrenceDeletedEvent |
 
 ### 6.3 Notes & assumptions
 
@@ -413,6 +415,40 @@ Ports — never a shared repository or schema (AL-1/AL-2).
 5. **Status modelling.** `Expense` is existence-based (no status enum); `SavingsGoal` and `Budget`
    carry explicit lifecycles. `Budget` "DEACTIVATED/DELETED" are shown as lifecycle nodes driven by
    the `active` flag and deletion rather than a stored enum, to match REQ-BUD-002.
-6. **Scope.** Only the three requested aggregates are detailed. `User`, `Category`, and
-   `RecurringExpense` lifecycles are deferred; their events referenced here (e.g. via ports) are
-   specified in `05-domain-model.md`.
+6. **Scope.** `User` and `Category` lifecycle commands are in `05-domain-model.md`. `RecurringExpense`
+   occurrence-edit and occurrence-delete commands are now specified in §7 below (CMD-001 / Q3 resolution).
+
+---
+
+## 7. Aggregate: `RecurringExpense` — Occurrence Commands  *(context: Expense — `expense-service`)*
+
+> **CMD-001 / Q3 resolution.** `PUT/DELETE /recurring-expenses/{id}?scope=…` in Doc 07 §4.2
+> targets the **occurrence** (a generated `Expense`), not the template. The path parameter `{id}` is
+> the **`ExpenseId`** of the specific occurrence. The service resolves the parent `RecurringExpenseId`
+> internally via the occurrence's `recurringExpenseId` field (see Doc 05 §5.2, Doc 07 §4.2 note).
+
+### 7.1 Invariants
+
+| # | Invariant | Source |
+|---|-----------|--------|
+| REC-INV-1 | `{id}` in occurrence commands always references an `ExpenseId`; the service returns 404 if the Expense does not exist, 400 if it has no `recurringExpenseId` (i.e. it is not a generated occurrence). | Q3-B |
+| REC-INV-2 | `scope=THIS_AND_FUTURE` operations set `endDate` on the template such that no new occurrences are generated after the target occurrence's date, then apply the edit/delete to the occurrence and to the template's future generation. | REQ-REC-004 |
+| REC-INV-3 | `scope=THIS` operations affect only the single occurrence; the template and all other occurrences are untouched. | REQ-REC-003 |
+| REC-INV-4 | If the modified occurrence was backing a `SavingsGoal` Contribution, the edit propagates `ContributionAmountAdjustedEvent` / `ExpenseDeletedEvent` to the savings-goal-service (AL-2 via outbox). | EXP-INV-9 |
+
+### 7.2 Commands
+
+| Command | Scope | Preconditions | State change | Events emitted |
+|---------|-------|---------------|--------------|----------------|
+| `EditOccurrenceCommand` | `THIS` | Caller owns the occurrence (`ExpenseId`); EXP-INV-1..5 re-validated on new values. | Updates the single occurrence `Expense` (amount, date, category, paymentMethod, description, merchant, notes). Template untouched. | `OccurrenceEditedEvent`; if amount/date changed and linked to goal → `ContributionAmountAdjustedEvent`. |
+| `EditFromOccurrenceForwardCommand` | `THIS_AND_FUTURE` | Caller owns the occurrence; EXP-INV-1..5 re-validated. `recurringExpenseId` must be non-null. | 1. Edits the target occurrence (like `THIS`). 2. Sets `end_date` on the template to `occurrence.date − 1 day` (stops future generation from old template). 3. Creates a new `RecurringExpense` template with the updated fields, `anchor_date = occurrence.date`, carrying forward remaining `max_occurrences − generated_count` (if applicable). | `OccurrenceEditedEvent`; `FutureOccurrencesTruncatedEvent(recurringExpenseId, truncatedAfter=occurrence.date)`. |
+| `DeleteOccurrenceCommand` | `THIS` | Caller owns the occurrence. | Deletes the single occurrence `Expense`. Template and sibling occurrences untouched. | `OccurrenceDeletedEvent`; if occurrence was a Contribution → `ExpenseDeletedEvent` (carries `savingsGoalId`). |
+| `DeleteFromOccurrenceForwardCommand` | `THIS_AND_FUTURE` | Caller owns the occurrence; `recurringExpenseId` non-null. | 1. Deletes the target occurrence `Expense`. 2. Sets `end_date` on the template to `occurrence.date − 1 day`; no new occurrences generated. Future generated occurrences (date ≥ occurrence.date, not yet materialized) are suppressed. | `OccurrenceDeletedEvent`; `FutureOccurrencesTruncatedEvent(recurringExpenseId, truncatedAfter=occurrence.date)`. |
+
+### 7.3 Domain Events
+
+| Event | Payload | Primary subscribers |
+|-------|---------|---------------------|
+| `OccurrenceEditedEvent` | `expenseId, recurringExpenseId, userId, scope, changedFields` | Reporting (audit trail). |
+| `FutureOccurrencesTruncatedEvent` | `recurringExpenseId, userId, truncatedAfter: DateOnly, newTemplateId?: RecurringExpenseId` | Reporting; Notification (Phase 2 — recurring schedule changed). |
+| `OccurrenceDeletedEvent` | `expenseId, recurringExpenseId, userId, scope, date, savingsGoalId?` | Savings Goal (if linked); Reporting. |

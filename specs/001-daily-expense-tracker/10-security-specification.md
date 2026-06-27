@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Application Security (AppSec) Engineer |
-| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.1), `07-api-specification.md`, `09-data-contract-specification.md`, `03-requirement-catalogue.md` |
+| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.2), `07-api-specification.md`, `09-data-contract-specification.md`, `03-requirement-catalogue.md` |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) |
 | **Traceability Authority** | [Requirement Catalogue](./03-requirement-catalogue.md) |
@@ -149,7 +149,7 @@ Logout and credential-change flows reuse the same revocation primitive:
 | `POST /auth/logout` | Revoke the current session's refresh token (`revoked_at = now()`). |
 | `PATCH /users/me/password` (change) | Revoke **all** of the user's refresh tokens (all `family_id` values). |
 | `POST /auth/reset-password` | Revoke **all** of the user's refresh tokens (all `family_id` values). |
-| `DELETE /users/me` (account deletion) | Revoke + delete all tokens (cascade per 09 §7.2). |
+| `DELETE /users/me` (account deletion) | Revoke + delete all tokens (cascade per 09 §8.2). |
 | Reuse detected (§2.5) | Revoke all tokens sharing the same `family_id` (family-scoped — not user-wide). |
 
 ### 2.6 Expiry handling sequence (transparent client refresh — FE-2)
@@ -223,7 +223,7 @@ Worked decision table for `GET/PUT/DELETE /api/v1/expenses/{id}`:
 
 ### 3.4 List endpoints — no foreign data ever returned
 
-List queries (`GET /expenses`, `/categories`, `/savings-goals`, `/budgets`, `/tags`, `/recurring-expenses`) MUST filter by `user_id = callerUserId` **in the repository query itself** (DB-6; `idx_*_user_id` exists on every table — 09 §8.2). A list MUST NOT return another user's rows under any filter combination, and the pagination envelope counts (`totalElements`) reflect only the caller's data.
+List queries (`GET /expenses`, `/categories`, `/savings-goals`, `/budgets`, `/tags`, `/recurring-expenses`) MUST filter by `user_id = callerUserId` **in the repository query itself** (DB-6; `idx_*_user_id` exists on every table — 09 §9.2). A list MUST NOT return another user's rows under any filter combination, and the pagination envelope counts (`totalElements`) reflect only the caller's data.
 
 ### 3.5 Ownership matrix
 
@@ -238,7 +238,7 @@ List queries (`GET /expenses`, `/categories`, `/savings-goals`, `/budgets`, `/ta
 
 ### 3.6 Cross-service ownership
 
-Cross-context references (`category_id`, `savings_goal_id`, `expense_id`) are bare UUIDs with **no DB FK** (09 §7.1). When one service references another's resource (e.g. an Expense citing a `categoryId`), it MUST validate **both existence and ownership/visibility** through the owning service's port/contract (AL-2). A foreign or invisible category on `POST/PUT /expenses` → **`403`** (07 §4.1). Services never read another service's database to perform this check (AL-1).
+Cross-context references (`category_id`, `savings_goal_id`, `expense_id`) are bare UUIDs with **no DB FK** (09 §8.1). When one service references another's resource (e.g. an Expense citing a `categoryId`), it MUST validate **both existence and ownership/visibility** through the owning service's port/contract (AL-2). A foreign or invisible category on `POST/PUT /expenses` → **`403`** (07 §4.1). Services never read another service's database to perform this check (AL-1).
 
 ---
 
@@ -297,13 +297,13 @@ Implementation requirements:
 | Right | Mechanism | Notes |
 |-------|-----------|-------|
 | **Data export / portability** | `POST /users/me/data-export` → async assembly, `data_exports.download_ref` to a time-limited object-store link | The export bundles the user's own data only; the link is SENSITIVE (treat like a credential, expire it). |
-| **Right to erasure** | `DELETE /users/me` → removes the user and **all** their data | Cascades delete tokens/verifications (09 §7.2); each service purges rows where `user_id = caller` on the deletion event; receipts removed from MinIO. |
+| **Right to erasure** | `DELETE /users/me` → removes the user and **all** their data | Cascades delete tokens/verifications (09 §8.2); each service purges rows where `user_id = caller` on the deletion event; receipts removed from MinIO. |
 | **Token/credential cleanup** | Expired/revoked tokens pruned via `expires_at` index | Reduces standing secret material. |
 
 ### 4.5 Data minimisation
 
 - JWT carries only `sub` (UUID) + standard claims — no email/name in the token.
-- Cross-service messages/DTOs carry **ids**, not PII (AL-4 / 09 §7.1).
+- Cross-service messages/DTOs carry **ids**, not PII (AL-4 / 09 §8.1).
 - Receipt EXIF (which can contain GPS coordinates and device PII) MUST be stripped on upload (§5.3).
 
 ---
@@ -346,7 +346,7 @@ Defence-in-depth — the 5 MB limit is enforced at **multiple layers** so a larg
 
 - **No DB storage of binaries.** The image is stored in **object storage (MinIO)**; PostgreSQL holds only `storage_ref`, `mime_type`, `size_bytes` (09 §4.2, Assumption 5).
 - **Generated storage key.** The object key is a server-generated UUID/path — the **original client filename is never used** as a filesystem/object path (prevents path traversal and overwrite attacks). Original filename, if retained, is sanitised and stored as metadata only.
-- **Re-encode / strip metadata.** On accept, the image SHOULD be re-encoded to a canonical form and **EXIF metadata stripped** (removes GPS/device PII — §4.5) and neutralises polyglot/embedded payloads.
+- **Re-encode / strip metadata.** On accept, the image **MUST** be re-encoded to a canonical form and **EXIF metadata stripped** (removes GPS/device PII — §4.5 / Doc 02 Glossary: EXIF — mandatory privacy control, not optional hardening) and neutralises polyglot/embedded payloads. Failing to strip EXIF before the MinIO write is a release blocker (CON-001 — aligned with Doc 02 Glossary MUST mandate).
 - **Safe serving.** `GET /expenses/{id}/receipt` serves with the correct `Content-Type` and `Content-Disposition` (e.g. `inline`/`attachment` with a safe name), plus `X-Content-Type-Options: nosniff` so the browser cannot interpret an image as HTML/script. Access is ownership-checked (§3).
 - **No active content.** SVG and HTML are **not** in the allowlist (script-bearing formats are excluded by design). Optional: server-side malware/AV scan before the object is made retrievable.
 - **Decompression / pixel-flood guard**: enforce sane max dimensions on decode to avoid decompression-bomb DoS.

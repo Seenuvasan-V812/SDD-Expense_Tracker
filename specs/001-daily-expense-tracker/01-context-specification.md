@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Principal Solutions Architect |
-| **Source Inputs** | `Daily expense tracker Requirements - updated.md`, `.specify/memory/constitution.md` (v1.1.1) |
+| **Source Inputs** | `Daily expense tracker Requirements - updated.md`, `.specify/memory/constitution.md` (v1.1.2) |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 
 > **Scope discipline.** This document defines only the system context and external
@@ -198,7 +198,7 @@ third-party services.
 
 This Context Specification is subordinate to and governed by the
 **[Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md)**
-(v1.1.1, ACTIVE — RATIFIED). Where any statement here conflicts with the constitution, the
+(v1.1.2, ACTIVE — RATIFIED). Where any statement here conflicts with the constitution, the
 constitution prevails (Governance §).
 
 | Context Specification Element | Governing Constitution Reference |

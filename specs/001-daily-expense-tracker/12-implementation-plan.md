@@ -1,10 +1,9 @@
-# Tasks — Daily Expense Application (AI-Agent Execution Blueprint)
+# Implementation Plan — Daily Expense Application (AI-Agent Execution Blueprint)
 
 | Field | Value |
 |-------|-------|
-| **Document** | `tasks.md` — Deterministic Execution Task List |
+| **Document** | `12-implementation-plan.md` — Deterministic Execution Task List (Architect + Phase Sequencing) |
 | **Feature Directory** | `specs/001-daily-expense-tracker` |
-| **Companion Plan** | [13-implementation-plan.md](./13-implementation-plan.md) |
 | **Governing Authority** | [Engineering Constitution](../../.specify/memory/constitution.md) + [Doc 11 Agent Pack](./11-agent-instruction-pack.md) |
 | **Status** | Ready for execution |
 | **Created** | 2026-06-26 |
@@ -246,7 +245,7 @@ adapters only (AL-2).
 - [ ] T095 [All services] [CQ-8] OutboxWriter — write event in **same @Transactional** as state change — `.../outbox/OutboxWriter.java`
 - [ ] T096 [All services] [Doc 08 §1.3] OutboxRelayScheduler — poll pending → publish to broker → mark sent — `.../outbox/OutboxRelayScheduler.java`
 - [ ] T097 [All consumers] [Doc 08 §1.3] `processed_events` table + idempotent-consume guard (dedup on eventId) — `.../consumer/ProcessedEventGuard.java`
-- [ ] T098 [Repo] [Doc 08 §1.1] Standard event envelope (eventId/type/version/occurredAt/producer/userId/traceId/payload) in shared-kernel — `shared-kernel/.../outbox/EventEnvelope.java`
+- [ ] T098 [Repo] [Doc 08 §1.2] Standard event envelope (eventId/type/version/occurredAt/producer/userId/traceId/payload) in shared-kernel — `shared-kernel/.../outbox/EventEnvelope.java`
 - [ ] T099 [Repo] [Doc 08] Event-flow integration test: expense create → budget ledger update + goal reconciliation across real Kafka — `.../test/.../EventFlowIT.java`
 
 ### Phase 5 — Frontend Integration
@@ -337,4 +336,4 @@ adapters only (AL-2).
 
 ---
 
-*End of `tasks.md` — Daily Expense Application execution blueprint.*
+*End of `12-implementation-plan.md` — Daily Expense Application execution blueprint.*

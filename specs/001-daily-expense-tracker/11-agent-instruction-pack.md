@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Principal AI Engineering Architect |
-| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.1), `07-api-specification.md`, `09-data-contract-specification.md` |
+| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.2), `07-api-specification.md`, `09-data-contract-specification.md` |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Audience** | The AI coding agent that will build this application |
 | **Usage** | Load this document verbatim as the agent's System Prompt / Custom Instructions before any implementation task. |
@@ -46,7 +46,7 @@ FE-1–FE-6, §6 naming). A law-violating output is a defect, not a draft.
   passing checks.
 - **Ask permission to follow the law.** The Constitution is not negotiable; do not ask whether you may
   use `Optional`, DTOs, or ownership checks — you must.
-- **Invent scope.** Build only what the current task and the specs (01–10) define. Work outside a
+- **Invent scope.** Build only what the current task and the specs (01–14) define. Work outside a
   defined bounded context (§2) is rejected.
 - **Emit placeholders** (`// TODO`, stubbed bodies, `throw new UnsupportedOperationException()`) into a
   GREEN or REFACTOR commit. Clean main only (CQ-4).
@@ -70,7 +70,8 @@ until all are loaded:**
 | 6 | `specs/001-daily-expense-tracker/09-data-contract-specification.md` | PostgreSQL schema, columns, constraints, indexes. | You know the table, columns, and CHECKs. |
 | 7 | `specs/001-daily-expense-tracker/10-security-specification.md` | Token lifecycle, ownership (403), PII masking, upload rules. | You know the security controls for the task. |
 | 8 | `specs/001-daily-expense-tracker/08-event-catalog.md` | Domain events for cross-service reconciliation (if the task crosses contexts). | You know which events to emit/consume. |
-| 9 | **The current task** (`tasks.md` entry / issue) | The precise unit of work and its acceptance criteria. | You can restate the task's Definition of Done. |
+| 9 | `specs/001-daily-expense-tracker/12-implementation-plan.md` | Phase structure (0-5), phase review gates, and T### task sequence — know which phase you're in and what comes before/after. | You know the current phase and its entry/exit gate. |
+| 10 | **The current TASK-NNN** in `specs/001-daily-expense-tracker/13-task-breakdown.md` | The precise unit of work: REQ-* traceability, Depends-On chain, and verifiable Acceptance Criteria. | You can restate the TASK-NNN Definition of Done and its unblocked dependencies. |
 
 **RULES:**
 - If a needed fact is absent from steps 1–8, it does not exist — do NOT invent it. Surface the gap;
@@ -157,7 +158,7 @@ are non-overridable. Each maps to a Constitution clause; emitting one is a relea
 - [ ] **Omitting the `Idempotency-Key`** handling on a retry-sensitive POST (contributions, CSV
       import, recurring generation). → Honor `Idempotency-Key`; back it with the persisted
       once-per-period / unique guards. (REQ-BUD-006; `budget_period_ledgers.fired_*`,
-      `uq_contribution_entries_goal_expense` — 09 §8.2)
+      `uq_contribution_entries_goal_expense` — 09 §9.2)
 - [ ] **Money as `float`/`double`.** → `NUMERIC(19,4)` in DB, `BigDecimal` + `Money` DTO
       (`{amount, currency:"INR"}`) in code. (DB-5 / 07 §1.5)
 - [ ] **Inline magic literals** for statuses/enums/messages. → Enums / constants. (CQ-3)
@@ -176,6 +177,22 @@ are non-overridable. Each maps to a Constitution clause; emitting one is a relea
       JWT only. (AL-5 / SEC-3)
 - [ ] **Accepting a receipt upload without server-side type+size validation** (JPEG/PNG/WEBP, ≤ 5 MB,
       magic-byte sniffed). (SEC-5 / 10-security §5)
+- [ ] **Storing a receipt image without stripping EXIF metadata** before or after saving. → Every
+      receipt write MUST run an EXIF-stripping library (e.g. Apache Commons Imaging or metadata-extractor)
+      before persisting to Object Storage. Omission is a release blocker. (Glossary: EXIF / SEC-002 /
+      10-security §5.3)
+- [ ] **Decoding the uploaded image to memory** without enforcing a pixel-count ceiling. → Check
+      `width × height ≤ configured_max_pixels` (recommended ≤ 25 MP) on the decoded image before any
+      processing step; reject with `400` if exceeded. Prevents pixel-flood / decompression-bomb DoS.
+      (SEC-003 / 10-security §5.3)
+- [ ] **Generating an object-storage key that uses user-supplied input** (filename, extension, path
+      segment). → The storage key MUST be generated server-side as a UUID v4 path (e.g.
+      `receipts/{userId}/{uuid}`); never incorporate any client-provided filename. (SEC-004 /
+      10-security §5.3)
+- [ ] **Writing a CSV cell value without stripping leading formula-injection characters** (`=`, `+`,
+      `-`, `@`, `\t`, `\r`). → Every cell value in a generated CSV response MUST be sanitised by
+      removing or prefixing the character with a single-quote (`'`) before writing. Applies to all
+      CSV exports (`GET /expenses/export`, report downloads). (SEC-005 / Doc 10 §5.5)
 - [ ] **`// TODO`, commented-out code, or unused imports** reaching `main`. (CQ-4)
 
 ### 4.2 Frontend (React / TypeScript)
@@ -183,7 +200,9 @@ are non-overridable. Each maps to a Constitution clause; emitting one is a relea
 - [ ] **The `any` type** anywhere. → Precise types/interfaces; `strict: true`. (P2 / FE-3)
 - [ ] **A raw `fetch` call or a second Axios instance.** → The one shared Axios client only. (FE-1)
 - [ ] **Manual token-refresh logic in a component.** → The shared client refreshes + retries
-      transparently. (FE-2)
+      transparently. The interceptor MUST use a **single in-flight refresh mutex** (e.g. a shared
+      `Promise` or semaphore) so concurrent 401 responses trigger exactly one refresh call — not N
+      parallel refresh attempts. (FE-2 / SEC-006)
 - [ ] **A data component that ignores loading / error / empty states**, or renders with undefined
       data. (FE-4)
 - [ ] **A form submitting without client-side validation** (server validation still applies). (FE-5)
@@ -262,8 +281,9 @@ law to satisfy a comment.
    where this pack requires it (P1).
 2. **3-commit granularity** (RED/GREEN/REFACTOR) is the SDLC standard for this project; squashing is
    permitted at merge only if the three messages are preserved in the PR body.
-3. **Context-loading file order** (Section 2) reflects the existing numbered specs 01–10; if a later
-   document (e.g. Notification/Income/Reporting API) is added, insert it after step 7 in number order.
+3. **Context-loading file order** (Section 2) now covers numbered specs 01–14, including
+   `12-implementation-plan.md` (step 9) and `13-task-breakdown.md` (step 10). If a further document is
+   added, insert it at the appropriate step position in document-number order.
 4. This pack is a **derived instruction artifact**: it introduces no new law. Where it appears stricter
    than the Constitution, it is operationalizing an existing `MUST`; the Constitution remains supreme
    (§Governance).

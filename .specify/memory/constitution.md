@@ -48,10 +48,10 @@ Follow-up TODOs: none.
 | Field | Value |
 |-------|-------|
 | **Title** | Daily Expense Application — Engineering Constitution ("The Law") |
-| **Version** | 1.1.1 |
+| **Version** | 1.1.2 |
 | **Status** | ACTIVE — RATIFIED |
 | **Ratified** | 2026-06-24 |
-| **Last Amended** | 2026-06-25 |
+| **Last Amended** | 2026-06-26 |
 | **Authority** | Supersedes all team conventions, tribal knowledge, and undocumented practice. |
 | **Amendment Process** | Amendments are made ONLY via pull request that states the change, its rationale, and migration impact, and is approved by the maintainers. Versioning is semantic: MAJOR = principle removal/redefinition; MINOR = new law/section or expanded guidance; PATCH = clarification. **Violation:** Any change to this document merged without an approving PR and a version bump is reverted on sight. |
 
@@ -107,6 +107,7 @@ constitutional amendment.
 | **Auth Token** | JWT | 15-min access tokens + rotating 7-day refresh tokens (§9). | Security gate fails; release blocked. |
 | **Integration Testing** | Testcontainers | Real app + real PostgreSQL per endpoint (§10). | CI test gate fails. |
 | **Observability** | Spring Boot Actuator + MDC | `/actuator/health` exposed; `traceId` in MDC. | Observability gate fails. |
+| **Message Broker** | Apache Kafka + ZooKeeper | Event relay from per-service transactional outbox to consuming services; integration tests use `testcontainers-kafka` module (CQ-8 / TRK-002). | Broker-absent build or non-Kafka broker PR rejected in review. |
 
 ## 5. Architecture Laws
 
@@ -265,4 +266,4 @@ this document prevails.
 - **Runtime guidance.** Agent and contributor guidance files MUST remain consistent with this document
   and are updated in the same change that amends a law.
 
-**Version**: 1.1.1 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-25
+**Version**: 1.1.2 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-26

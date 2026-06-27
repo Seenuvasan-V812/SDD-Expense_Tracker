@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Domain-Driven Design (DDD) Architect |
-| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.1), `02-glossary.md`, `03-requirement-catalogue.md` |
+| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.2), `02-glossary.md`, `03-requirement-catalogue.md` |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) |
 | **Traceability Authority** | [Requirement Catalogue](./03-requirement-catalogue.md) |
@@ -156,6 +156,7 @@ deletion, and data export. (REQ-USR-001…011, REQ-SEC-001…004, REQ-SEC-006.)
 | **User** | «AR» | Root of the identity aggregate. Cannot authenticate while `status = INACTIVE_UNVERIFIED` (REQ-USR-004). Deletion sets `DELETED` and triggers data removal (REQ-USR-010). |
 | **EmailVerification** | «E» | Local entity holding the time-limited verification token; consumed once to move `User` to `ACTIVE`. |
 | **RefreshToken** | «E» | Local entity; 7-day expiry, **rotated** on each refresh — the prior token is invalidated immediately (SEC-2). One User has many over time. |
+| **DataExport** | «E» | Local entity representing a user-initiated personal-data export request. Fields: `{ dataExportId, userId, requestedAt, status ∈ {PENDING, PROCESSING, READY, FAILED}, storageRef? (object-storage key), expiresAt? }`. One per request; multiple exports per User over time. Created by `AccountLifecycleService`; persisted to `identity_db.data_exports`. (CMD-002 / REQ-USR-011) |
 | **UserId** | «VO» | Stable identity; exported to every other context as the ownership key. |
 | **EmailAddress** | «VO» | Validated format; unique across the context; immutable once set (re-validation required to change). |
 | **PasswordHash** | «VO» | BCrypt hash (cost ≥ 12). Plain text never stored, logged, or returned (SEC-1, CQ-13). |
@@ -264,6 +265,9 @@ Owns: Expenses, Receipts, Tags-on-Expense, recurring Expense generation, CSV imp
  ├─ pattern:         «VO» RecurrencePattern     { frequency ∈ {DAILY,WEEKLY,MONTHLY,YEARLY}, anchorDate }
  ├─ bound:           «VO» RecurrenceBound        { endDate? | maxOccurrences? | indefinite }
  ├─ generatedCount:  int                          (occurrences produced so far)
+ ├─ nextRunDate:     «VO» DateOnly?               (scheduler cursor — next date on which an Occurrence
+ │                                                 will be generated; NULL when all occurrences emitted or
+ │                                                 when the template is inactive; DAT-004)
  └─ audit:           «VO» AuditTimestamps
 ```
 

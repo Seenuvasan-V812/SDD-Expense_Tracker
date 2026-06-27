@@ -98,7 +98,7 @@ if (-not (Test-Path $paths.IMPL_PLAN -PathType Leaf)) {
 
 # Check for tasks.md if required
 if ($RequireTasks -and -not (Test-Path $paths.TASKS -PathType Leaf)) {
-    [Console]::Error.WriteLine("ERROR: tasks.md not found in $($paths.FEATURE_DIR)")
+    [Console]::Error.WriteLine("ERROR: 12-implementation-plan.md not found in $($paths.FEATURE_DIR)")
     $tasksCommand = '/speckit-tasks'
     [Console]::Error.WriteLine("Run $tasksCommand first to create the task list.")
     exit 1
@@ -120,7 +120,7 @@ if (Test-Path $paths.QUICKSTART) { $docs += 'quickstart.md' }
 
 # Include tasks.md if requested and it exists
 if ($IncludeTasks -and (Test-Path $paths.TASKS)) { 
-    $docs += 'tasks.md' 
+    $docs += '12-implementation-plan.md'
 }
 
 # Output results
@@ -142,6 +142,6 @@ if ($Json) {
     Test-FileExists -Path $paths.QUICKSTART -Description 'quickstart.md' | Out-Null
     
     if ($IncludeTasks) {
-        Test-FileExists -Path $paths.TASKS -Description 'tasks.md' | Out-Null
+        Test-FileExists -Path $paths.TASKS -Description '12-implementation-plan.md' | Out-Null
     }
 }

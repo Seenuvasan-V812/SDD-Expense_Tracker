@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Lead API Designer |
-| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.1), `05-domain-model.md`, `06-aggregate-specifications.md` |
+| **Source Inputs** | `.specify/memory/constitution.md` (v1.1.2), `05-domain-model.md`, `06-aggregate-specifications.md` |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) |
 | **Traceability Authority** | [Requirement Catalogue](./03-requirement-catalogue.md) |
@@ -139,8 +139,8 @@ These headers are governed by Doc 10 §1.2. The implementation applies them at t
 | POST | `/auth/refresh` | Rotate Refresh Token; issue new pair | `200` | `401` (invalid/reused) | public | REQ-SEC-002 |
 | POST | `/auth/logout` | Revoke the session's Refresh Token (body: `LogoutRequest`) | `204` | `400` (missing body), `401` | Bearer | REQ-USR-006 |
 | POST | `/auth/forgot-password` | Send time-limited reset link | `202` | `400`, `429` | public (rate-limited) | REQ-USR-007 |
-| POST | `/auth/reset-password` | Reset password via link token | `200` | `400` (bad/expired token) | public | REQ-USR-007 |
-| PATCH | `/users/me/password` | Change password (current required) | `200` | `400`, `401` | Bearer | REQ-USR-009 |
+| POST | `/auth/reset-password` | Reset password via link token — **all active refresh tokens for the user are revoked on success** (Doc 10 §2.5 / SEC-001) | `200` | `400` (bad/expired token) | public | REQ-USR-007 |
+| PATCH | `/users/me/password` | Change password (current required) — **all active refresh tokens for the user are revoked on success; client must re-authenticate** (Doc 10 §2.5 / SEC-001) | `204` | `400`, `401` | Bearer | REQ-USR-009 |
 | GET | `/users/me` | Get own profile | `200` | `401` | Bearer | REQ-USR-008 |
 | PUT | `/users/me` | Update profile (name, preferred currency, timezone, locale, Weekly Digest toggle) | `200` | `400`, `401` | Bearer | REQ-USR-008, REQ-NOTIF-001 |
 | DELETE | `/users/me` | Delete own account (removes all data) | `204` | `401` | Bearer | REQ-USR-010 |
@@ -168,6 +168,10 @@ AuthTokenResponse:
   refreshToken:  string     # 7-day, rotates on refresh
   tokenType:     "Bearer"
   expiresInSec:  900
+  # NOTE (CON-004 / Doc 10 §2.7): Refresh token SHOULD be delivered via an
+  # HttpOnly; Secure; SameSite=Strict cookie (preferred). The JSON body field is
+  # retained for native clients unable to use cookies. Frontend implementations
+  # MUST NOT store the refresh token in localStorage or sessionStorage (FE-4).
 
 RefreshTokenRequest:
   refreshToken: string
@@ -250,9 +254,9 @@ CategoryResponse:
 | GET | `/expenses` | List own Expenses (paginated, filterable, sortable) | `200` (page) | `401` | REQ-EXP-003/004/005 |
 | GET | `/expenses/{id}` | Get one Expense | `200` | `401`, `403`, `404` | REQ-EXP-003 |
 | POST | `/expenses` | Create an Expense | `201` + `Location` | `400`, `403` (foreign category) | REQ-EXP-001/002 |
-| PUT | `/expenses/{id}` | Edit any field (incl. goal link) | `200` | `400`, `403`, `404` | REQ-EXP-006/007 |
+| PUT | `/expenses/{id}` | Edit any field (incl. goal link) — **if `savingsGoalId` is non-null, `categoryId` is automatically overridden with the user's Savings Category (EXP-INV-5 / CON-003); any `categoryId` in the request body is ignored** | `200` | `400`, `403`, `404` | REQ-EXP-006/007 |
 | DELETE | `/expenses/{id}` | Delete an Expense | `204` | `403`, `404` | REQ-EXP-008 |
-| POST | `/expenses/{id}/receipt` | Upload/replace Receipt (multipart) | `200` | `400` (type/size), `403`, `404` | REQ-EXP-009, SEC-5 |
+| POST | `/expenses/{id}/receipt` | Upload/replace Receipt (multipart) | `201` + `Location: /api/v1/expenses/{id}/receipt` (API-4 — creates a Receipt resource / CON-002) | `400` (type/size), `403`, `404` | REQ-EXP-009, SEC-5 |
 | GET | `/expenses/{id}/receipt` | View/download Receipt | `200` (binary) | `403`, `404` | REQ-EXP-010 |
 | DELETE | `/expenses/{id}/receipt` | Delete Receipt (Expense retained) | `204` | `403`, `404` | REQ-EXP-011 |
 | POST | `/expenses/import` | Bulk CSV import (`text/csv`, ≤ 10 MB, ≤ 10 000 rows; see `CsvImport` in §4.4) | `200` (report) | `400` (size/type/row-count) | REQ-EXP-012/013 |
@@ -263,12 +267,18 @@ CategoryResponse:
 
 ### 4.2 Recurring Expense endpoints
 
+> **CMD-001 / Q3-B resolution.** `{id}` in `PUT` and `DELETE` below is the **`ExpenseId`** of the
+> specific generated occurrence, NOT the `RecurringExpenseId` of the template. The service resolves
+> the parent template internally via the occurrence's `recurringExpenseId` field. Returns `400` if
+> the target Expense has no `recurringExpenseId` (i.e. is not a generated occurrence). See Doc 06 §7
+> for the full `EditOccurrenceCommand` / `DeleteOccurrenceCommand` specifications.
+
 | Method | Path | Purpose | Success | Failures | Req |
 |--------|------|---------|---------|----------|-----|
 | GET | `/recurring-expenses` | List Recurring Expense templates & schedules | `200` (page) | `401` | REQ-REC-006 |
 | POST | `/recurring-expenses` | Create a Recurring Expense template | `201` + `Location` | `400` | REQ-REC-001/002 |
-| PUT | `/recurring-expenses/{id}?scope=THIS\|THIS_AND_FUTURE` | Edit this Occurrence or this+future | `200` | `400`, `403`, `404` | REQ-REC-004 |
-| DELETE | `/recurring-expenses/{id}?scope=THIS\|THIS_AND_FUTURE` | Delete this Occurrence or this+future | `204` | `403`, `404` | REQ-REC-005 |
+| PUT | `/recurring-expenses/{id}?scope=THIS\|THIS_AND_FUTURE` | Edit this Occurrence (`{id}` = ExpenseId) or this+future | `200` | `400`, `403`, `404` | REQ-REC-004 |
+| DELETE | `/recurring-expenses/{id}?scope=THIS\|THIS_AND_FUTURE` | Delete this Occurrence (`{id}` = ExpenseId) or this+future | `204` | `403`, `404` | REQ-REC-005 |
 
 ### 4.3 Tag endpoints
 
@@ -313,6 +323,12 @@ ReceiptUpload (multipart/form-data):
   file: binary               # JPEG/PNG/WEBP only, ≤ 5 MB (SEC-5) → else 400
                              # Type is determined by magic-byte / content sniffing — client-supplied
                              # Content-Type is NOT trusted (Doc 10 §5.2 / S-05)
+                             # SEC-002: EXIF MUST be stripped server-side before persisting to Object
+                             #          Storage (Glossary: EXIF / Doc 10 §5.3 / release blocker).
+                             # SEC-003: After decoding, verify width × height ≤ max_pixels (≤ 25 MP);
+                             #          reject 400 if exceeded (pixel-flood / decompression-bomb guard).
+                             # SEC-004: Storage key MUST be a server-generated UUID v4 path
+                             #          (e.g. receipts/{userId}/{uuid}); NEVER use client-supplied filename.
 
 ReceiptDownloadResponse:     # GET /expenses/{id}/receipt — mandatory server-enforced response headers (S-04, Doc 10 §5.3)
   # Content-Type:        image/jpeg | image/png | image/webp   (matches stored mime_type)

@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Lead Technical Product Manager |
-| **Source Inputs** | `Daily expense tracker Requirements - updated.md`, `.specify/memory/constitution.md` (v1.1.1), `02-glossary.md` |
+| **Source Inputs** | `Daily expense tracker Requirements - updated.md`, `.specify/memory/constitution.md` (v1.1.2), `02-glossary.md` |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) — all requirement statements use Glossary terms verbatim |
 
@@ -88,7 +88,7 @@ and never reused**; if a requirement is retired, its ID is retired with it.
 | REQ-USR-005 | A General User must be able to log in with email and password. | Functional | Must |
 | REQ-USR-006 | A General User must be able to log out, which invalidates the current **Access Token** session. | Functional | Must |
 | REQ-USR-007 | A General User must be able to reset their password via a time-limited email link. | Functional | Must |
-| REQ-USR-008 | A General User must be able to update their profile — name, preferred currency, and timezone. | Functional | Must |
+| REQ-USR-008 | A General User must be able to update their profile — name, preferred currency, timezone, and **preferred locale** (date/number formatting, e.g. `en-IN`). (CON-005) | Functional | Must |
 | REQ-USR-009 | A General User must be able to change their password by providing their current password. | Functional | Must |
 | REQ-USR-010 | A General User must be able to delete their own account; deletion must remove all associated data. | Functional | Must |
 | REQ-USR-011 | A General User must be able to perform a **Data Export** of all their data as a single downloadable file. | Functional | Must |

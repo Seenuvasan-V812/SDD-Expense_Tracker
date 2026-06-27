@@ -8,7 +8,7 @@
 | **Status** | Draft |
 | **Created** | 2026-06-25 |
 | **Author Role** | Principal Database Architect |
-| **Source Inputs** | `06-aggregate-specifications.md`, `05-domain-model.md`, `.specify/memory/constitution.md` (v1.1.1) |
+| **Source Inputs** | `06-aggregate-specifications.md`, `05-domain-model.md`, `.specify/memory/constitution.md` (v1.1.2) |
 | **Governing Authority** | [Daily Expense Application — Engineering Constitution](../../.specify/memory/constitution.md) |
 | **Vocabulary Authority** | [Ubiquitous Language Glossary](./02-glossary.md) |
 
@@ -171,7 +171,7 @@ Tables: `users`, `email_verifications`, `refresh_tokens`, `password_reset_tokens
 
 ## 4. Database `expense_db`  *(service: `expense-service` — Expense / Transaction)*
 
-Tables: `expenses`, `receipts`, `tags`, `expense_tags`, `recurring_expenses`.
+Tables: `expenses`, `receipts`, `tags`, `expense_tags`, `recurring_expenses`, `recurring_expense_tags`.
 
 ### 4.1 `expenses`
 
@@ -248,6 +248,8 @@ add `idx_expense_tags_tag_id` (filter Expenses by Tag — REQ-EXP-004; tag delet
 | `category_id` | `UUID` | `NOT NULL` (cross-service ref — no FK) |
 | `payment_method` | `VARCHAR(12)` | `NOT NULL`, same `CHECK` set as `expenses` |
 | `description` | `VARCHAR(500)` | `NULL` |
+| `merchant` | `VARCHAR(150)` | `NULL` (DAT-001 — copied to each generated occurrence `expenses.merchant`) |
+| `notes` | `VARCHAR(1000)` | `NULL` (DAT-001 — copied to each generated occurrence `expenses.notes`) |
 | `frequency` | `VARCHAR(8)` | `NOT NULL`, `CHECK (frequency IN ('DAILY','WEEKLY','MONTHLY','YEARLY'))` |
 | `anchor_date` | `DATE` | `NOT NULL` |
 | `end_date` | `DATE` | `NULL` |
@@ -257,6 +259,18 @@ add `idx_expense_tags_tag_id` (filter Expenses by Tag — REQ-EXP-004; tag delet
 | `created_at` / `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` |
 
 **Indexes:** `idx_recurring_expenses_user_id`; `idx_recurring_expenses_next_run_date` (scheduler scan — REQ-REC-003).
+
+### 4.6 `recurring_expense_tags`  *(join table — DAT-001)*
+
+Tags to be carried onto each generated occurrence. When the scheduler generates an `expenses` row from a template, it also copies the template's tag set into `expense_tags`.
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `recurring_expense_id` | `UUID` | `NOT NULL`, `fk_ret_recurring_expense_id` → `recurring_expenses(id)` `ON DELETE CASCADE` |
+| `tag_id` | `UUID` | `NOT NULL`, `fk_ret_tag_id` → `tags(id)` `ON DELETE CASCADE` |
+| `created_at` / `updated_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` |
+
+**Constraint:** `PRIMARY KEY (recurring_expense_id, tag_id)`. **Indexes:** PK covers `recurring_expense_id`; add `idx_recurring_expense_tags_tag_id`.
 
 ---
 
@@ -350,13 +364,59 @@ composite `idx_budget_period_ledgers_budget_period` `(budget_id, period_start, p
 
 > The `fired_*` boolean pair is the **persisted idempotency guard** enforcing "each Budget Threshold
 > fires once per Budget Period" (REQ-BUD-006) — the single most regression-prone rule, made durable
-> at the data layer.
+> at the data layer. **Domain model mapping (DAT-006):** these two columns collectively represent the
+> `FiredThresholdSet` Value Object defined in Doc 06 §4.1 (`BudgetPeriodLedger.firedThresholds:
+> Set<BudgetThreshold>`). A `true` value ≡ the threshold is in the set; `false` ≡ absent. The boolean
+> representation was chosen over a join table for simplicity given exactly two possible threshold values.
 
 ---
 
-## 7. Cross-Schema Isolation Verification
+## 7. Infrastructure Tables (All Services)  *(DAT-002 / DAT-003 / Q4-A)*
 
-### 7.1 Cross-context reference columns (stored as UUID, NO foreign key)
+> Each Phase 1 service owns its own copy of these two tables, suffixed with the service name in
+> practice (or placed in the service's schema). They implement the **Transactional Outbox Pattern**
+> (CQ-8 / Constitution §4 Message Broker row).
+
+### 7.1 `outbox`  *(per-service — event relay staging)*
+
+One row is inserted in the **same DB transaction** as the aggregate state change. A relay thread
+(or scheduled Spring batch) polls this table post-commit and publishes to Kafka, then marks the row
+as published. Idempotent consumers use `event_id` for deduplication.
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `id` | `UUID` | `PRIMARY KEY DEFAULT gen_random_uuid()` |
+| `event_id` | `UUID` | `NOT NULL UNIQUE` (idempotency key — same as `EventEnvelope.eventId` in shared-kernel) |
+| `aggregate_type` | `VARCHAR(100)` | `NOT NULL` (e.g. `'Expense'`, `'Budget'`) |
+| `aggregate_id` | `UUID` | `NOT NULL` |
+| `event_type` | `VARCHAR(200)` | `NOT NULL` (e.g. `'ExpenseCreatedEvent'`) |
+| `payload` | `JSONB` | `NOT NULL` (serialized `EventEnvelope`) |
+| `published` | `BOOLEAN` | `NOT NULL DEFAULT FALSE` |
+| `created_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` |
+| `published_at` | `TIMESTAMPTZ` | `NULL` (set by relay on success) |
+
+**Indexes:** `idx_outbox_published_created` — `(published, created_at)` (relay poll scan);
+`uq_outbox_event_id` — `UNIQUE (event_id)` (idempotent insert guard).
+
+### 7.2 `processed_events`  *(per-service — consumer idempotency guard)*
+
+Each consuming service inserts `event_id` here before processing; if the row already exists it skips
+the event (duplicate delivery protection).
+
+| Column | Type | Constraints |
+|--------|------|-------------|
+| `event_id` | `UUID` | `PRIMARY KEY` (guarantees uniqueness; duplicate insert = conflict = skip) |
+| `event_type` | `VARCHAR(200)` | `NOT NULL` |
+| `processed_at` | `TIMESTAMPTZ` | `NOT NULL DEFAULT now()` |
+
+**Note:** Retention policy — rows older than 30 days may be pruned by a maintenance job; the
+Kafka topic retention window must be ≤ 30 days OR the pruning window adjusted to match.
+
+---
+
+## 8. Cross-Schema Isolation Verification
+
+### 8.1 Cross-context reference columns (stored as UUID, NO foreign key)
 
 | Column | Lives in (service.table) | Conceptually points to | Validated via (AL-2) |
 |--------|--------------------------|--------------------------|----------------------|
@@ -370,7 +430,7 @@ composite `idx_budget_period_ledgers_budget_period` `(budget_id, period_start, p
 > (AL-1/AL-2). FKs exist **only within** a single service's schema (e.g. `receipts.expense_id` →
 > `expenses.id`).
 
-### 7.2 Intra-service foreign keys (allowed)
+### 8.2 Intra-service foreign keys (allowed)
 
 | FK | Within | Cascade |
 |----|--------|---------|
@@ -378,37 +438,39 @@ composite `idx_budget_period_ledgers_budget_period` `(budget_id, period_start, p
 | `expense_tags.expense_id` → `expenses.id` | `expense_db` | `ON DELETE CASCADE` |
 | `expense_tags.tag_id` → `tags.id` | `expense_db` | `ON DELETE CASCADE` |
 | `expenses.recurring_expense_id` → `recurring_expenses.id` | `expense_db` | `ON DELETE SET NULL` |
+| `recurring_expense_tags.recurring_expense_id` → `recurring_expenses.id` | `expense_db` | `ON DELETE CASCADE` |
+| `recurring_expense_tags.tag_id` → `tags.id` | `expense_db` | `ON DELETE CASCADE` |
 | `contribution_entries.savings_goal_id` → `savings_goals.id` | `savings_goal_db` | `ON DELETE CASCADE` |
 | `budget_period_ledgers.budget_id` → `budgets.id` | `budget_db` | `ON DELETE CASCADE` |
 | `email_verifications/refresh_tokens/password_reset_tokens/data_exports.user_id` → `users.id` | `identity_db` | `ON DELETE CASCADE` |
 
 ---
 
-## 8. Summary
+## 9. Summary
 
-### 8.1 Tables per database
+### 9.1 Tables per database
 
 | Database (service) | Tables | Count |
 |--------------------|--------|-------|
 | `identity_db` (`user-service`) | users, email_verifications, refresh_tokens, password_reset_tokens, data_exports | 5 |
 | `category_db` (`category-service`) | categories | 1 |
-| `expense_db` (`expense-service`) | expenses, receipts, tags, expense_tags, recurring_expenses | 5 |
+| `expense_db` (`expense-service`) | expenses, receipts, tags, expense_tags, recurring_expenses, recurring_expense_tags | 6 |
 | `savings_goal_db` (`savings-goal-service`) | savings_goals, contribution_entries | 2 |
 | `budget_db` (`budget-service`) | budgets, budget_period_ledgers | 2 |
-| **Total** | — | **15** |
+| **Total** | — | **16** |
 
-### 8.2 Index coverage highlights
+### 9.2 Index coverage highlights
 
-- **Every `user_id`** across all 15 tables is indexed (ownership filter — DB-4/DB-6).
+- **Every `user_id`** across all 16 tables is indexed (ownership filter — DB-4/DB-6).
 - **Every cross-service ref column** (`category_id`, `savings_goal_id`, `expense_id`) is indexed.
 - **Expense list** is served by `idx_expenses_user_date` (default sort) plus per-filter indexes for
   category, payment method, tag, savings goal, and date (REQ-EXP-004/005).
 - **Idempotency / once-per-period** guards persisted: `budget_period_ledgers.fired_*`,
   `uq_contribution_entries_goal_expense`, `uq_receipts_expense_id`.
 
-### 8.3 Notes & assumptions
+### 9.3 Notes & assumptions
 
-1. **No cross-schema joins anywhere** (DB-1/DB-2). The §7.1 table is the exhaustive list of
+1. **No cross-schema joins anywhere** (DB-1/DB-2). The §8.1 table is the exhaustive list of
    cross-context references; all are plain UUID columns validated via ports — never FKs.
 2. **Audit columns on every table** (`created_at`, `updated_at` `TIMESTAMPTZ NOT NULL`), maintained
    by a per-service `set_updated_at()` trigger (CQ-9).
