@@ -1,0 +1,64 @@
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+*.nar
+.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# Spring Boot
+*.pid
+spring.pid
+application-local.yml
+application-local.properties
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.eclipse/
+.settings/
+.classpath
+.project
+*.factorypath
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Node / Frontend
+node_modules/
+dist/
+build/
+.parcel-cache/
+.cache/
+*.tsbuildinfo
+
+# Environment & secrets — NEVER COMMIT THESE
+.env
+.env.*
+*.env
+secrets/
+*credentials*.json
+
+# Docker
+.dockerignore
+
+# Logs & temp
+*.log
+*.log.*
+logs/
+tmp/
+
+# Coverage
+htmlcov/
+.coverage
+coverage/
+jacoco.exec
+*.exec
+
+# OS
+.DS_Store
+Thumbs.db

@@ -318,17 +318,17 @@ cross-context reads go through `port/` adapters only (AL-2).
 
 ### Phase 5 — Frontend (React 18 + TS strict)  *(US labels per feature)*
 
-- [ ] T100 [FE-3] [FE-7] Vite + React 18 + TS strict scaffold + Tailwind CSS + shadcn/ui init — `frontend/tsconfig.json`, `tailwind.config.ts`, `components.json`, `src/globals.css`
+- [x] T100 [FE-3] [FE-7] Vite + React 18 + TS strict scaffold + Tailwind CSS + shadcn/ui init — `frontend/tsconfig.json`, `tailwind.config.ts`, `components.json`, `src/globals.css`
   - RED: `tsc --noEmit` gate + registry-compliance lint (grep for unregistered UI packages) · AC: 0 tsc errors; `vite build` ok; Tailwind PostCSS configured; `npx shadcn@latest init` config committed (`components.json`); all packages in `package.json` appear in Doc 15 §3 registry; no `any`. Depends: T001.
-- [ ] T101 [FE-6] apiConfig — env-based base URLs (no hardcoded URLs) — `frontend/src/lib/apiConfig.ts`
+- [x] T101 [FE-6] apiConfig — env-based base URLs (no hardcoded URLs) — `frontend/src/lib/apiConfig.ts`
   - RED: lint/grep gate · AC: base URL from `import.meta.env.VITE_API_BASE_URL`; no hardcoded `http://` in any `.ts`/`.tsx`. Depends: T100.
-- [ ] T102 [FE-1] [FE-2] Single axiosClient + single-flight refresh interceptor — `frontend/src/lib/axiosClient.ts`
+- [x] T102 [FE-1] [FE-2] Single axiosClient + single-flight refresh interceptor — `frontend/src/lib/axiosClient.ts`
   - RED: `axiosClient` Vitest (MSW) · AC: exactly one Axios instance; two concurrent 401s→exactly one `POST /auth/refresh`; queued requests replayed; refresh-fail→clear+redirect. Depends: T101.
-- [ ] T103 [FE-2] Auth store (in-memory access token) + ProtectedRoute — `frontend/src/features/auth/authStore.ts`
+- [x] T103 [FE-2] Auth store (in-memory access token) + ProtectedRoute — `frontend/src/features/auth/authStore.ts`
   - RED: auth-store Vitest · AC: token in memory (not localStorage/sessionStorage); `clearTokens()`→`getAccessToken()` null; ProtectedRoute redirects when unauthenticated. Depends: T102.
-- [ ] T104 [REQ-USR-003] Auth pages: login/register/verify/forgot/reset — `frontend/src/features/auth/`
+- [x] T104 [REQ-USR-003] Auth pages: login/register/verify/forgot/reset — `frontend/src/features/auth/`
   - RED: RTL tests (loading/error/success) · AC: each page renders loading/error/success; client-side required-field validation; `tsc` strict clean. Depends: T103.
-- [ ] T105 [FE-4] [FE-7] Shared LoadingState(shadcn Skeleton)/ErrorState(shadcn Alert)/EmptyState(shadcn Card+lucide) + PaginatedTable(@tanstack/react-table + shadcn Table) + MoneyDisplay(Intl.NumberFormat en-IN) + DateDisplay(date-fns enIN) — `frontend/src/components/`
+- [x] T105 [FE-4] [FE-7] Shared LoadingState(shadcn Skeleton)/ErrorState(shadcn Alert)/EmptyState(shadcn Card+lucide) + PaginatedTable(@tanstack/react-table + shadcn Table) + MoneyDisplay(Intl.NumberFormat en-IN) + DateDisplay(date-fns enIN) — `frontend/src/components/`
   - RED: RTL for all 6 · AC: states render correct fallback; `LoadingState` has `aria-busy="true"`; PaginatedTable consumes `PageResponse<T>`; MoneyDisplay→`₹{amount}` via `Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'})`; DateDisplay uses `date-fns` `enIN` locale; all lib imports from Doc 15 §3 registry; no `any`. Depends: T100.
 - [ ] T106 [US1] [REQ-CAT-001] Categories feature (list/form, default vs custom) — `frontend/src/features/categories/`
   - RED: RTL · AC: DEFAULT shows no/disabled delete (`deletable:false`); custom create/edit; `?type=` filter; `tsc` clean. Depends: T105,T043.
