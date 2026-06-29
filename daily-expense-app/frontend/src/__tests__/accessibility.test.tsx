@@ -43,10 +43,7 @@ async function runAxe(container: HTMLElement) {
   )
 }
 
-async function renderAndWaitEmpty(
-  Component: React.ComponentType,
-  emptyText: RegExp,
-) {
+async function renderAndWaitEmpty(Component: React.ComponentType) {
   const qc = makeQC()
   const { container } = render(
     <QueryClientProvider client={qc}>
@@ -67,7 +64,7 @@ describe('T110 — Accessibility (axe-core: 0 serious/critical)', () => {
     describe(`CategoriesPage @ ${width}px`, () => {
       it(`renders without serious/critical axe violations at ${width}px`, async () => {
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
-        const container = await renderAndWaitEmpty(CategoriesPage, /no categories/i)
+        const container = await renderAndWaitEmpty(CategoriesPage)
         const violations = await runAxe(container)
         expect(violations).toHaveLength(0)
       })
@@ -76,7 +73,7 @@ describe('T110 — Accessibility (axe-core: 0 serious/critical)', () => {
     describe(`ExpensesPage @ ${width}px`, () => {
       it(`renders without serious/critical axe violations at ${width}px`, async () => {
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
-        const container = await renderAndWaitEmpty(ExpensesPage, /no expenses/i)
+        const container = await renderAndWaitEmpty(ExpensesPage)
         const violations = await runAxe(container)
         expect(violations).toHaveLength(0)
       })
@@ -85,7 +82,7 @@ describe('T110 — Accessibility (axe-core: 0 serious/critical)', () => {
     describe(`SavingsGoalsPage @ ${width}px`, () => {
       it(`renders without serious/critical axe violations at ${width}px`, async () => {
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
-        const container = await renderAndWaitEmpty(SavingsGoalsPage, /no savings goals/i)
+        const container = await renderAndWaitEmpty(SavingsGoalsPage)
         const violations = await runAxe(container)
         expect(violations).toHaveLength(0)
       })
@@ -94,7 +91,7 @@ describe('T110 — Accessibility (axe-core: 0 serious/critical)', () => {
     describe(`BudgetsPage @ ${width}px`, () => {
       it(`renders without serious/critical axe violations at ${width}px`, async () => {
         Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: width })
-        const container = await renderAndWaitEmpty(BudgetsPage, /no budgets/i)
+        const container = await renderAndWaitEmpty(BudgetsPage)
         const violations = await runAxe(container)
         expect(violations).toHaveLength(0)
       })
