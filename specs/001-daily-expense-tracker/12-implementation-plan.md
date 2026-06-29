@@ -330,17 +330,17 @@ cross-context reads go through `port/` adapters only (AL-2).
   - RED: RTL tests (loading/error/success) · AC: each page renders loading/error/success; client-side required-field validation; `tsc` strict clean. Depends: T103.
 - [x] T105 [FE-4] [FE-7] Shared LoadingState(shadcn Skeleton)/ErrorState(shadcn Alert)/EmptyState(shadcn Card+lucide) + PaginatedTable(@tanstack/react-table + shadcn Table) + MoneyDisplay(Intl.NumberFormat en-IN) + DateDisplay(date-fns enIN) — `frontend/src/components/`
   - RED: RTL for all 6 · AC: states render correct fallback; `LoadingState` has `aria-busy="true"`; PaginatedTable consumes `PageResponse<T>`; MoneyDisplay→`₹{amount}` via `Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'})`; DateDisplay uses `date-fns` `enIN` locale; all lib imports from Doc 15 §3 registry; no `any`. Depends: T100.
-- [ ] T106 [US1] [REQ-CAT-001] Categories feature (list/form, default vs custom) — `frontend/src/features/categories/`
+- [x] T106 [US1] [REQ-CAT-001] Categories feature (list/form, default vs custom) — `frontend/src/features/categories/`
   - RED: RTL · AC: DEFAULT shows no/disabled delete (`deletable:false`); custom create/edit; `?type=` filter; `tsc` clean. Depends: T105,T043.
-- [ ] T107 [US1] [REQ-EXP-001] Expenses feature (list+filters+sort+pagination, form, receipts, tags, recurring, import/export) — `frontend/src/features/expenses/`
+- [x] T107 [US1] [REQ-EXP-001] Expenses feature (list+filters+sort+pagination, form, receipts, tags, recurring, import/export) — `frontend/src/features/expenses/`
   - RED: RTL (loading/error/empty) · AC: filters update list; form validates amount/date/category/method client-side; receipt pre-validate >5MB/type; import+export controls; `tsc` clean. Depends: T105,T054,T055.
-- [ ] T108 [US3] [REQ-GOAL-001] Savings Goals (list active/completed, detail+progress+projection+history, contribution form) — `frontend/src/features/savings-goals/`
+- [x] T108 [US3] [REQ-GOAL-001] Savings Goals (list active/completed, detail+progress+projection+history, contribution form) — `frontend/src/features/savings-goals/`
   - RED: RTL · AC: ACTIVE/COMPLETED split; detail shows remaining/percent/projection; history paginated; contribution form validates amount>0+date; status control; `tsc` clean. Depends: T105,T072,T075.
-- [ ] T109 [US4] [REQ-BUD-001] Budgets (list+status cards, form, activation/rollover toggles) — `frontend/src/features/budgets/`
+- [x] T109 [US4] [REQ-BUD-001] Budgets (list+status cards, form, activation/rollover toggles) — `frontend/src/features/budgets/`
   - RED: RTL · AC: status card set/spent/remaining/percentUsed; form validates limit>0; activation/rollover toggles call PATCH; loading/error/empty; `tsc` clean. Depends: T105,T086,T092.
-- [ ] T110 [REQ-A11Y] Accessibility (ARIA/keyboard/contrast) + responsive breakpoints — `frontend/src/`
+- [x] T110 [REQ-A11Y] Accessibility (ARIA/keyboard/contrast) + responsive breakpoints — `frontend/src/`
   - RED: axe-core + viewport tests · AC: ARIA labels/roles; keyboard nav (Tab/Enter/Esc); WCAG AA contrast (0 serious/critical); renders at 320/768/1024px. Depends: T107,T108,T109.
-- [ ] T111 [P6] Frontend test suite (Vitest + RTL + MSW) — `frontend/src/**/__tests__/`
+- [x] T111 [P6] Frontend test suite (Vitest + RTL + MSW) — `frontend/src/**/__tests__/`
   - RED: suite first · AC: `vitest run` 100%; refresh interceptor proven; loading/error/empty per data view; no `any`; `tsc --noEmit` clean; Phase 5 gate green. Depends: T110,T102.
 
 ### Phase 6 — Cross-Service Data Export Aggregation & Business Observability  *(REQ-USR-011, REQ-OBS-006/CQ-14)*
