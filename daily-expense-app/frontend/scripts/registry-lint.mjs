@@ -33,6 +33,7 @@ const INFRASTRUCTURE = new Set([
   'typescript', '@types/react', '@types/react-dom', '@types/node',
   'vitest', '@testing-library/react', '@testing-library/jest-dom',
   '@testing-library/user-event', 'msw', 'jsdom',
+  'axe-core',
 ])
 
 const pkg = JSON.parse(

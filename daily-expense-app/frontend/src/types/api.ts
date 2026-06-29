@@ -1,3 +1,8 @@
+export interface MoneyVO {
+  amount: string
+  currency: string
+}
+
 export interface PageResponse<T> {
   content: T[]
   page: number
