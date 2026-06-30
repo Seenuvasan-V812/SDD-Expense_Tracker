@@ -1199,8 +1199,8 @@
 |-------|-------|
 | Phase | Phase 5 — Frontend Integration |
 | Depends On | TASK-100 |
-| Spec Refs | Constitution FE-4; API-2 (`PageResponse`); Doc 07 §1.3 |
-| Acceptance Criteria | `LoadingState`, `ErrorState`, `EmptyState` render correct fallback UI; `PaginatedTable` accepts `PageResponse<T>` prop and renders rows + pagination controls; `MoneyDisplay` renders `{amount, currency}` as `₹{amount}` in `en-IN` locale; `DateDisplay` formats dates in `en-IN`; RTL tests for all 6 components; `tsc` strict (no `any`) |
+| Spec Refs | Constitution FE-4, FE-7; API-2 (`PageResponse`); Doc 07 §1.3; Doc 15 §3 (approved library registry), §5 (component inventory) |
+| Acceptance Criteria | `LoadingState`, `ErrorState`, `EmptyState` render correct fallback UI using shadcn Skeleton/Alert/Card primitives from `src/components/ui/`; `PaginatedTable` built with `@tanstack/react-table` + shadcn Table — accepts `PageResponse<T>` prop and renders rows + pagination controls; `MoneyDisplay` renders `{amount, currency}` as `₹{amount}` via `Intl.NumberFormat('en-IN',{style:'currency',currency:'INR'})` (no extra library); `DateDisplay` formats dates via `date-fns` `enIN` locale; icons from `lucide-react` only; all imports present in Doc 15 §3 registry (no unregistered package); RTL tests for all 6 components; `tsc` strict (no `any`) |
 
 ---
 

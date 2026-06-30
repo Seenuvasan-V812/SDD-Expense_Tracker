@@ -1,11 +1,14 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.1.0 → 1.1.1
-Bump rationale (PATCH): Non-semantic refresh. Re-ratified under the enterprise "Engineering Law"
-  format with no change to any law, principle, or governance rule. Only the Last Amended date was
-  advanced to the date of re-issue (2026-06-25). All mandates, "Violation:" clauses, and section
-  ordering are preserved verbatim. No principle added, removed, or weakened.
+Version change: 1.1.2 → 1.2.0
+Bump rationale (MINOR): New frontend standard FE-7 — Approved UI library registry — added to §11
+  Frontend Standards. Introduces a constitutional pointer to
+  `specs/001-daily-expense-tracker/15-ui-design-system.md` as the sole governing source for all
+  frontend UI, styling, charting, and form dependencies. No library names are hardcoded in the
+  law itself; the registry doc is the mutable source of truth, amended by PR per its own §2.
+  All prior laws (P1–P7, AL-1–AL-5, API-1–API-7, SEC-1–SEC-6, CQ-1–CQ-14, FE-1–FE-6) are
+  preserved verbatim and unchanged.
 
 Sections (this version, enforced order):
   1. SYNC IMPACT REPORT (this HTML comment)
@@ -21,21 +24,25 @@ Sections (this version, enforced order):
   11. Frontend Standards
   12. Governance
 
-Mapping from v1.0.0 principles:
+Mapping (unchanged from v1.1.x):
   I  Architecture/Stack  → §5 Technology Stack + §6 Architecture Laws + §4.1
   II Contract-First API  → §8 API Standards + §4.4
   III Security           → §9 Security Standards + §4.2
   IV Layering/Quality    → §6 Architecture Laws + §10 Code Quality & Database Laws + §4.3
   V  Testing             → §10 Code Quality & Database Laws + §4.5
   VI Observability       → §10 Code Quality & Database Laws + §4.6
-  VII Data/Frontend      → §10 (Database) + §11 Frontend Standards
+  VII Data/Frontend      → §10 (Database) + §11 Frontend Standards (FE-1..FE-7)
 
 Templates / artifacts:
-  ✅ .specify/templates/plan-template.md   — Constitution Check gate backed by these laws; no edit.
+  ✅ .specify/templates/plan-template.md   — Constitution Check gate now covers FE-7; update to add FE-7 row.
   ✅ .specify/templates/spec-template.md   — no new mandatory spec sections introduced.
-  ✅ .specify/templates/tasks-template.md  — testing/observability/security/error categories align.
+  ✅ .specify/templates/tasks-template.md  — FE-7 registry compliance check added to Phase 5 gate.
   ✅ .specify/templates/checklist-template.md — no change required.
   ✅ .specify/templates/constitution-template.md — source template; structure honored.
+  ✅ specs/001-daily-expense-tracker/15-ui-design-system.md — NEW; created in this same change.
+  ✅ specs/001-daily-expense-tracker/spec.md — §4 tech stack + §6 manifest updated in this change.
+  ✅ specs/001-daily-expense-tracker/plan.md — FE-7 Constitution Check row + Phase 5 gate updated.
+  ✅ specs/001-daily-expense-tracker/12-implementation-plan.md — T100, T105, Phase 5 gate updated.
   ⚠ README.md / docs/quickstart.md — absent from repo; create consistent with this law if introduced.
 
 Follow-up TODOs: none.
@@ -48,10 +55,10 @@ Follow-up TODOs: none.
 | Field | Value |
 |-------|-------|
 | **Title** | Daily Expense Application — Engineering Constitution ("The Law") |
-| **Version** | 1.1.2 |
+| **Version** | 1.2.0 |
 | **Status** | ACTIVE — RATIFIED |
 | **Ratified** | 2026-06-24 |
-| **Last Amended** | 2026-06-26 |
+| **Last Amended** | 2026-06-28 |
 | **Authority** | Supersedes all team conventions, tribal knowledge, and undocumented practice. |
 | **Amendment Process** | Amendments are made ONLY via pull request that states the change, its rationale, and migration impact, and is approved by the maintainers. Versioning is semantic: MAJOR = principle removal/redefinition; MINOR = new law/section or expanded guidance; PATCH = clarification. **Violation:** Any change to this document merged without an approving PR and a version bump is reverted on sight. |
 
@@ -250,6 +257,12 @@ All artefacts MUST follow these conventions. Examples are drawn from the Expense
   validation per API-7 still applies). **Violation:** PR rejected in review.
 - **FE-6 — No hardcoded config.** API base URLs and environment-specific values come ONLY from
   environment variables; hardcoding in components is PROHIBITED. **Violation:** PR blocked by lint/review.
+- **FE-7 — Approved UI library registry.** All frontend UI components, charting, form management,
+  styling utilities, and icon sets MUST be sourced exclusively from the approved library registry
+  defined in `specs/001-daily-expense-tracker/15-ui-design-system.md`. No UI dependency may be
+  added to `frontend/package.json` without first registering it in that document and obtaining an
+  approving PR. **Violation:** PR blocked in review; any unregistered package import is removed
+  before merge.
 
 ## Governance
 
@@ -266,4 +279,4 @@ this document prevails.
 - **Runtime guidance.** Agent and contributor guidance files MUST remain consistent with this document
   and are updated in the same change that amends a law.
 
-**Version**: 1.1.2 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-26
+**Version**: 1.2.0 | **Ratified**: 2026-06-24 | **Last Amended**: 2026-06-28

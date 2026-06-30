@@ -2,10 +2,10 @@
 
 **Branch**: `001-daily-expense-tracker` | **Date**: 2026-06-27 | **Spec**: [spec.md](./spec.md)
 
-**Input**: Feature specification manifest from `/specs/001-daily-expense-tracker/spec.md` (entry point) plus the 15 authoritative sources it lists in Section 6.
+**Input**: Feature specification manifest from `/specs/001-daily-expense-tracker/spec.md` (entry point) plus the 16 authoritative sources it lists in Section 6.
 
 > **Authority chain.** spec.md is a manifest; binding detail lives in the numbered sources. This plan
-> was authored after reading, in order: the Constitution v1.1.2, `01`–`11` specs, `12-implementation-plan.md`,
+> was authored after reading, in order: the Constitution v1.2.0, `01`–`11` specs, `12-implementation-plan.md`,
 > `13-task-breakdown.md`, and `14-test-strategy.md`. Where this plan and a source disagree, the source
 > wins. All identifiers use the canonical terms in [`02-glossary.md`](./02-glossary.md); anti-terms are prohibited.
 
@@ -14,13 +14,13 @@
 Phase 1 delivers a personal-finance application for the India market (INR, UPI, `en-IN`) as **five
 independently deployable Spring Boot microservices** — `user-service`, `category-service`,
 `expense-service`, `savings-goal-service`, `budget-service` — plus a React 18 + TypeScript (strict) SPA,
-governed end-to-end by the Engineering Constitution v1.1.2. Each service owns its own PostgreSQL database
+governed end-to-end by the Engineering Constitution v1.2.0. Each service owns its own PostgreSQL database
 (`identity_db`, `category_db`, `expense_db`, `savings_goal_db`, `budget_db`); cross-context collaboration
 flows **only** through Anti-Corruption Ports and asynchronous domain events published via a per-service
 **transactional outbox** relayed to Kafka. The technical approach is fixed by the Constitution and spec.md
 Section 4 (no alternatives are evaluated). The build order mirrors `12-implementation-plan.md`:
 **Phase 0 shared-kernel → Phase 1 user → Phase 2 category+expense → Phase 3 savings+budget → Phase 4 outbox
-infrastructure → Phase 5 frontend**, executed task-by-task (TASK-001..111 / T001..T111) under the
+infrastructure → Phase 5 frontend**, executed task-by-task (TASK-001..119 / T001..T119) under the
 3-Commit Loop (RED → GREEN → REFACTOR).
 
 **Scope guard (spec.md §7).** `income-service`, `reporting-service`, and the `notification-service`
@@ -33,8 +33,12 @@ them in Phase 1. Any milestone referencing a deferred item is invalid and is omi
 **Language/Version**: Java 21 (LTS) backend; TypeScript 5.x (`strict: true`, `any` prohibited) frontend.
 
 **Primary Dependencies**: Spring Boot 3.x (Web, Security, Data JPA, Validation, Actuator), Spring Kafka,
-Flyway, Spring Scheduling; React 18 + Vite, single shared Axios instance, React Query (data-fetching state).
-EXIF-stripping image library (e.g. Apache Commons Imaging / metadata-extractor) for receipts.
+Flyway, Spring Scheduling; React 18 + Vite, single shared Axios instance, @tanstack/react-query
+(data-fetching state, wraps axiosClient per FE-1), @tanstack/react-table (PaginatedTable), Tailwind CSS +
+shadcn/ui + Radix UI (UI components), react-hook-form + zod (forms + validation, FE-5), lucide-react
+(icons), date-fns (en-IN locale formatting). Full registry and constraints governed by
+`15-ui-design-system.md` (FE-7). EXIF-stripping image library (e.g. Apache Commons Imaging /
+metadata-extractor) for receipts.
 
 **Storage**: PostgreSQL — **one database per service** (`identity_db`, `category_db`, `expense_db`,
 `savings_goal_db`, `budget_db`), 16 domain tables + per-service `outbox` and `processed_events`; Flyway
@@ -58,7 +62,7 @@ Responsive web client (desktop/tablet/mobile) over HTTPS.
 receipt upload ≤ 5 MB, decoded pixels ≤ 25 MP (pixel-flood guard). Stateless services (AL-5) scale
 horizontally; access-token validation is signature-only (no DB hit).
 
-**Constraints**: Constitution v1.1.2 is supreme and non-negotiable. JWT HS256, 15-min access token +
+**Constraints**: Constitution v1.2.0 is supreme and non-negotiable. JWT HS256, 15-min access token +
 7-day rotating refresh token (stored only as SHA-256 hash, `family_id` for reuse detection); BCrypt cost
 ≥ 12. Ownership is a domain invariant → **403, never 404** (INV-1 / SEC-3). No cross-schema joins or
 cross-service FKs (AL-1/DB-2); cross-context refs are bare UUIDs validated via ports (AL-2). Secrets load
@@ -66,7 +70,7 @@ only from env/secret store (SEC-6/P5). Mandatory security response headers on ev
 
 **Scale/Scope**: Single-tenant per General User (no multi-user/admin). 128 catalogued requirements
 (121 Must); **51 REST endpoint groups** across 5 services; 45 catalogued domain events (Phase 1 producers
-write all; only the 5 active services consume); 111 atomic tasks across 6 phases.
+write all; only the 5 active services consume); 119 atomic tasks across 6 phases.
 
 ## Constitution Check
 
@@ -137,7 +141,7 @@ The design is a direct realization of the Constitution; every law has a concrete
 | CQ-13 Log hygiene/PII | `PiiMasker`; no email/name/amount/token in logs or error `message`. | PASS |
 | CQ-14 Health & metrics | `/actuator/health` + business metrics. | PASS |
 
-### Frontend Standards (FE-1..FE-6)
+### Frontend Standards (FE-1..FE-7)
 
 | Law | Mechanism | Status |
 |-----|-----------|--------|
@@ -145,8 +149,9 @@ The design is a direct realization of the Constitution; every law has a concrete
 | FE-2 Transparent refresh | Interceptor with single in-flight refresh mutex; auto-retry. | PASS |
 | FE-3 Strict, no `any` | `tsc` strict gate. | PASS |
 | FE-4 Explicit states | Loading/Error/Empty per data view; never render undefined data. | PASS |
-| FE-5 Client validation | All forms validate client-side (server-side still authoritative). | PASS |
+| FE-5 Client validation | All forms validate client-side via zod + react-hook-form (server-side still authoritative). | PASS |
 | FE-6 No hardcoded config | API base URLs from env only. | PASS |
+| FE-7 UI registry | All UI/styling/charting/form packages sourced from approved registry in `15-ui-design-system.md`; no ad-hoc deps. | PASS |
 
 ## Project Structure
 
@@ -167,7 +172,7 @@ specs/001-daily-expense-tracker/
 │   └── budget-service.md
 ├── 01-context-specification.md … 11-agent-instruction-pack.md   # authoritative sources
 ├── 12-implementation-plan.md     # execution blueprint (this plan aligns to it)
-├── 13-task-breakdown.md          # TASK-001..111 atomic breakdown
+├── 13-task-breakdown.md          # TASK-001..119 atomic breakdown
 └── 14-test-strategy.md           # test levels, risk matrix, release gates
 ```
 
@@ -198,7 +203,7 @@ daily-expense-app/
     └── src/
         ├── lib/         # axiosClient (single instance, FE-1/2), apiConfig (env, FE-6)
         ├── features/    # auth, categories, expenses, savings-goals, budgets
-        ├── components/  # LoadingState/ErrorState/EmptyState (FE-4), PaginatedTable, Money/DateDisplay (en-IN)
+        ├── components/  # LoadingState(Skeleton)/ErrorState(Alert)/EmptyState (FE-4), PaginatedTable(TanStack Table+shadcn), Money/DateDisplay (en-IN); feature-level shadcn primitives in components/ui/
         └── types/       # TS mirrors of API DTOs (strict, no any)
 ```
 
@@ -221,7 +226,7 @@ outbox only.
 | **2** | `category-service` + `expense-service` | `category_db`/`expense_db` Flyway; default seed (11, Savings role); `CategoryLookupPort`/`CategoryUsagePort`; Expense CRUD+filters; receipts (magic-byte, EXIF strip, ≤5MB, pixel guard); tags; recurring + scheduler; CSV import/export; Expense events via outbox | T040–T068 | category+expense Testcontainers green; DEFAULT edit/delete→409/403; receipt rejections→400; EXIF stripped; CSV idempotent; money is `NUMERIC(19,4)` |
 | **3** | `savings-goal-service` + `budget-service` | `savings_goal_db`/`budget_db` Flyway; goal CRUD + status machine (409 illegal); `ContributionPort`; primary+secondary contribution flows; reconciliation consumer; auto-complete once; budget CRUD; spending consumer; threshold fire once-per-period; rollover ledgers | T069–T093 | suites green; one ContributionEntry per backing Expense; reconcile on edit/delete/unlink; threshold once/period; deactivated fires none; rollover only when enabled |
 | **4** | Transactional outbox infra | Per-service `outbox` + `processed_events`; `OutboxWriter` (same tx); `OutboxRelayScheduler`; idempotent consume guard; event-flow IT over real Kafka | T094–T099 | outbox+state atomic (rollback test); consumers idempotent on `eventId`; expense→budget+goal IT green; ArchUnit AL-1 green |
-| **5** | Frontend (React 18 + TS strict) | Vite scaffold; `apiConfig` (env); single `axiosClient` + single-flight refresh; auth store + pages; shared Loading/Error/Empty + PaginatedTable + en-IN Money/Date; categories/expenses/goals/budgets features; a11y + responsive; Vitest/RTL/MSW | T100–T111 | `tsc` strict clean (0 `any`); one Axios instance; transparent refresh proven; L/E/E per view; a11y + responsive pass |
+| **5** | Frontend (React 18 + TS strict) | Vite scaffold + Tailwind + shadcn/ui init; `apiConfig` (env); single `axiosClient` + single-flight refresh; auth store + pages (react-hook-form + zod); shared Loading/Error/Empty + PaginatedTable + en-IN Money/Date; categories/expenses/goals/budgets features; a11y + responsive; Vitest/RTL/MSW | T100–T111 | `tsc` strict clean (0 `any`); one Axios instance; transparent refresh proven; L/E/E per view; a11y + responsive pass; FE-7 registry compliance (all imports from Doc 15) |
 
 **Final release gate (before declaring Phase-1 done).** All 9 hard-stop violation classes (Doc 11 §4) absent
 (ArchUnit + lint + static scan); full security suite (Doc 10 §8) green; MinIO buckets private (signed/proxied
