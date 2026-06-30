@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import { Plus } from 'lucide-react'
 import LoadingState from '@/components/LoadingState'
@@ -11,11 +11,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import GoalForm from './GoalForm'
 import ContributionForm from './ContributionForm'
-import { fetchGoals } from './api'
+import { fetchGoals, updateGoalStatus } from './api'
 import type { SavingsGoalResponse, GoalStatus } from './types'
 
-const STATUS_COLORS: Record<GoalStatus, string> = {
+const STATUS_BADGE: Record<GoalStatus, 'default' | 'secondary' | 'outline' | 'destructive'> = {
   ACTIVE: 'default',
   PAUSED: 'secondary',
   COMPLETED: 'outline',
@@ -26,6 +27,7 @@ export default function SavingsGoalsPage() {
   const qc = useQueryClient()
   const [activePage, setActivePage] = useState(0)
   const [completedPage, setCompletedPage] = useState(0)
+  const [goalFormOpen, setGoalFormOpen] = useState(false)
   const [contribTarget, setContribTarget] = useState<SavingsGoalResponse | null>(null)
 
   const {
@@ -48,6 +50,14 @@ export default function SavingsGoalsPage() {
     queryFn: () => fetchGoals('COMPLETED', completedPage),
   })
 
+  const statusMutation = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: GoalStatus }) =>
+      updateGoalStatus(id, status),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['savings-goals'] })
+    },
+  })
+
   const goalColumns: ColumnDef<SavingsGoalResponse>[] = [
     { accessorKey: 'name', header: 'Name' },
     {
@@ -58,16 +68,16 @@ export default function SavingsGoalsPage() {
         return (
           <div className="space-y-1 min-w-[120px]">
             <Progress value={Math.min(pct, 100)} className="h-2" aria-label={`${pct}% achieved`} />
-            <span className="text-xs text-muted-foreground">{pct}%</span>
+            <span className="text-xs text-muted-foreground">{pct.toFixed(1)}%</span>
           </div>
         )
       },
     },
     {
-      id: 'remaining',
-      header: 'Remaining',
+      id: 'contributed',
+      header: 'Contributed',
       cell: ({ row }) => (
-        <MoneyDisplay amount={parseFloat(row.original.remainingAmount.amount)} />
+        <MoneyDisplay amount={parseFloat(row.original.totalContributed.amount)} />
       ),
     },
     {
@@ -78,10 +88,22 @@ export default function SavingsGoalsPage() {
       ),
     },
     {
+      id: 'remaining',
+      header: 'Remaining',
+      cell: ({ row }) => (
+        <MoneyDisplay amount={parseFloat(row.original.remainingAmount.amount)} />
+      ),
+    },
+    {
+      accessorKey: 'targetDate',
+      header: 'Target Date',
+      cell: ({ row }) => row.original.targetDate ?? '—',
+    },
+    {
       accessorKey: 'status',
       header: 'Status',
       cell: ({ row }) => (
-        <Badge variant={STATUS_COLORS[row.original.status] as 'default' | 'secondary' | 'outline' | 'destructive'}>
+        <Badge variant={STATUS_BADGE[row.original.status]}>
           {row.original.status}
         </Badge>
       ),
@@ -91,16 +113,40 @@ export default function SavingsGoalsPage() {
       header: 'Actions',
       cell: ({ row }) => {
         const goal = row.original
-        if (goal.status !== 'ACTIVE') return null
         return (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setContribTarget(goal)}
-            aria-label="Add contribution"
-          >
-            Add contribution
-          </Button>
+          <div className="flex gap-1 flex-wrap">
+            {goal.status === 'ACTIVE' && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setContribTarget(goal)}
+                >
+                  Contribute
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() =>
+                    statusMutation.mutate({ id: goal.savingsGoalId, status: 'PAUSED' })
+                  }
+                >
+                  Pause
+                </Button>
+              </>
+            )}
+            {goal.status === 'PAUSED' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  statusMutation.mutate({ id: goal.savingsGoalId, status: 'ACTIVE' })
+                }
+              >
+                Resume
+              </Button>
+            )}
+          </div>
         )
       },
     },
@@ -122,7 +168,7 @@ export default function SavingsGoalsPage() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Savings Goals</h1>
-        <Button onClick={() => qc.invalidateQueries({ queryKey: ['savings-goals'] })}>
+        <Button onClick={() => setGoalFormOpen(true)}>
           <Plus className="mr-2 h-4 w-4" aria-hidden="true" />
           New Goal
         </Button>
@@ -130,13 +176,19 @@ export default function SavingsGoalsPage() {
 
       <Tabs defaultValue="active">
         <TabsList>
-          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="active">
+            Active{activeData?.totalElements ? ` (${activeData.totalElements})` : ''}
+          </TabsTrigger>
           <TabsTrigger value="completed">Completed</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active">
           {!activeData?.content.length ? (
-            <EmptyState message="No savings goals found." />
+            <EmptyState
+              message="No active savings goals."
+              actionLabel="Create your first goal"
+              onAction={() => setGoalFormOpen(true)}
+            />
           ) : (
             <PaginatedTable
               data={activeData}
@@ -165,6 +217,8 @@ export default function SavingsGoalsPage() {
           )}
         </TabsContent>
       </Tabs>
+
+      <GoalForm open={goalFormOpen} onOpenChange={setGoalFormOpen} />
 
       {contribTarget && (
         <ContributionForm

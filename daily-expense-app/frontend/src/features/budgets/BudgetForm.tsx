@@ -27,6 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { CreateBudgetRequest } from './types'
 import { createBudget } from './api'
 import { fetchCategories } from '@/features/categories/api'
 
@@ -72,14 +73,16 @@ export default function BudgetForm({ open, onOpenChange }: Props) {
   const scope = form.watch('scope')
 
   const mutation = useMutation({
-    mutationFn: (values: FormValues) =>
-      createBudget({
+    mutationFn: (values: FormValues) => {
+      const req: CreateBudgetRequest = {
         scope: values.scope,
         categoryId: values.scope === 'CATEGORY' ? values.categoryId : undefined,
-        limit: { amount: values.limit, currency: 'INR' },
-        period: values.period,
+        budgetLimit: parseFloat(values.limit),
+        periodType: values.period,
         rolloverEnabled: values.rolloverEnabled,
-      }),
+      }
+      return createBudget(req)
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['budgets'] })
       onOpenChange(false)

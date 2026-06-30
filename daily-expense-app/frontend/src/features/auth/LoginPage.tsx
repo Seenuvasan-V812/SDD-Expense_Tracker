@@ -113,6 +113,11 @@ export default function LoginPage() {
               Register
             </Link>
           </div>
+          <div className="mt-2 text-center text-sm">
+            <Link to="/verify-email" className="text-muted-foreground underline-offset-4 hover:underline text-xs">
+              Verify email with token
+            </Link>
+          </div>
         </CardContent>
       </Card>
     </div>

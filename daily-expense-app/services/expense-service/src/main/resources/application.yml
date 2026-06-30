@@ -1,0 +1,56 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: expense-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/expense_db}
+    username: ${SPRING_DATASOURCE_USERNAME:expense_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:expense_pass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+    consumer:
+      group-id: expense-service
+      auto-offset-reset: earliest
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+jwt:
+  secret: ${JWT_SECRET}
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: ${MINIO_ACCESS_KEY:minio_admin}
+  secret-key: ${MINIO_SECRET_KEY:minio_secret}
+  bucket: receipts
+
+outbox:
+  relay:
+    topic: expenses
+    delay-ms: 5000
+
+kafka:
+  topics:
+    savings-goals: savings-goals
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level %logger{36} traceId=%X{traceId} userId=%X{userId} - %msg%n"

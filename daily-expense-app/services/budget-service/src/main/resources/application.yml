@@ -1,0 +1,61 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: budget-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5436/budget_db}
+    username: ${SPRING_DATASOURCE_USERNAME:budget_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:budget_pass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+    consumer:
+      group-id: budget-service
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+    listener:
+      missing-topics-fatal: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+jwt:
+  secret: ${JWT_SECRET}
+
+outbox:
+  relay:
+    topic: budgets
+    delay-ms: 5000
+
+category:
+  service:
+    base-url: ${CATEGORY_SERVICE_BASE_URL:}
+
+kafka:
+  topics:
+    expenses: expenses
+
+budget:
+  rollover:
+    delay-ms: 3600000
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level %logger{36} traceId=%X{traceId} userId=%X{userId} - %msg%n"

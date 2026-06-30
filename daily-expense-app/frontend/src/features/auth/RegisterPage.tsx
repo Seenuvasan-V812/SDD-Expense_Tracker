@@ -49,12 +49,24 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
         <Card className="w-full max-w-sm">
-          <CardContent className="pt-6">
+          <CardContent className="pt-6 space-y-4">
             <Alert role="status">
               <AlertDescription>
-                Account created! Check your email to verify your account.
+                Account created! A verification link will be sent to your email once the
+                notification service is enabled.
               </AlertDescription>
             </Alert>
+            <p className="text-sm text-center text-muted-foreground">
+              Have a verification token?{' '}
+              <Link to="/verify-email" className="text-primary underline-offset-4 hover:underline">
+                Verify email
+              </Link>
+            </p>
+            <p className="text-sm text-center">
+              <Link to="/login" className="text-primary underline-offset-4 hover:underline">
+                Back to sign in
+              </Link>
+            </p>
           </CardContent>
         </Card>
       </div>

@@ -1,0 +1,16 @@
+spring:
+  kafka:
+    bootstrap-servers: "localhost:29092"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+minio:
+  endpoint: http://localhost:9000
+  access-key: test-key
+  secret-key: test-secret
+  bucket: test-receipts
+
+# Disable @Scheduled so RecurringExpenseGenerator does not run during tests
+scheduling:
+  enabled: false

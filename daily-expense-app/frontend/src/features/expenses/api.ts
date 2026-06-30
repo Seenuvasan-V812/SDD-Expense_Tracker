@@ -50,8 +50,19 @@ export async function uploadReceipt(id: string, file: File): Promise<void> {
   })
 }
 
-export function exportExpensesUrl(from: string, to: string): string {
-  return `/api/v1/expenses/export?from=${from}&to=${to}`
+export async function exportExpenses(from: string, to: string): Promise<void> {
+  const { data } = await axiosClient.get('/api/v1/expenses/export', {
+    params: { from, to },
+    responseType: 'blob',
+  })
+  const url = window.URL.createObjectURL(new Blob([data as BlobPart], { type: 'text/csv' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `expenses-${from}-${to}.csv`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  window.URL.revokeObjectURL(url)
 }
 
 export async function importExpenses(file: File): Promise<unknown> {

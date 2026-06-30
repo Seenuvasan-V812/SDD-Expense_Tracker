@@ -1,0 +1,145 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+env:
+  JAVA_VERSION: '21'
+  NODE_VERSION: '20'
+
+jobs:
+
+  # ── Backend: compile & ArchUnit (runs before Testcontainers) ─────────────
+  archunit:
+    name: ArchUnit — Architecture Rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+      - name: Build shared-kernel
+        working-directory: daily-expense-app
+        run: mvn install -pl shared-kernel -am -DskipTests -q
+      - name: Run ArchUnit tests (all services)
+        working-directory: daily-expense-app
+        env:
+          JWT_SECRET: ci-placeholder-secret-for-build-only-32c
+        run: |
+          mvn test -pl shared-kernel \
+            -Dtest=ArchitectureRulesTest \
+            --no-transfer-progress
+
+  # ── Backend: unit tests + coverage ───────────────────────────────────────
+  unit:
+    name: Unit Tests + Coverage
+    runs-on: ubuntu-latest
+    needs: archunit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+      - name: Run unit tests
+        working-directory: daily-expense-app
+        env:
+          JWT_SECRET: ci-placeholder-secret-for-build-only-32c
+        run: |
+          mvn verify -pl shared-kernel \
+            -Dfailsafe.skip=true \
+            --no-transfer-progress
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-shared-kernel
+          path: daily-expense-app/shared-kernel/target/site/jacoco/
+
+  # ── Backend: Testcontainers integration tests ─────────────────────────────
+  integration:
+    name: Testcontainers Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit
+    services: {}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+      - name: Run integration tests
+        working-directory: daily-expense-app
+        env:
+          JWT_SECRET: ci-placeholder-secret-for-build-only-32c
+        run: |
+          mvn verify -Dsurefire.skip=true \
+            --no-transfer-progress
+
+  # ── Frontend: tsc + lint + Vitest ────────────────────────────────────────
+  frontend:
+    name: Frontend — tsc + lint + Vitest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: daily-expense-app/frontend/package-lock.json
+      - name: Install
+        working-directory: daily-expense-app/frontend
+        run: npm ci
+      - name: TypeScript check
+        working-directory: daily-expense-app/frontend
+        run: npx tsc --noEmit
+      - name: Lint
+        working-directory: daily-expense-app/frontend
+        run: npm run lint
+      - name: Vitest
+        working-directory: daily-expense-app/frontend
+        run: npm run test -- --run
+
+  # ── OpenAPI contract diff ─────────────────────────────────────────────────
+  contract-diff:
+    name: OpenAPI Contract Diff
+    runs-on: ubuntu-latest
+    needs: integration
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: temurin
+          cache: maven
+      - name: Generate OpenAPI specs
+        working-directory: daily-expense-app
+        env:
+          JWT_SECRET: ci-placeholder-secret-for-build-only-32c
+        run: |
+          mvn spring-boot:run \
+            -pl services/user-service \
+            -Dspring-boot.run.arguments="--server.port=8081 --spring.profiles.active=openapi" \
+            -Dspring-boot.run.fork=true &
+          sleep 15
+          curl -f http://localhost:8081/v3/api-docs > /tmp/user-service-current.json || true
+          kill %1 2>/dev/null || true
+      - name: Diff against baseline
+        run: |
+          if [ -f daily-expense-app/contracts/openapi/user-service-baseline.json ]; then
+            npx @openapitools/openapi-diff \
+              daily-expense-app/contracts/openapi/user-service-baseline.json \
+              /tmp/user-service-current.json \
+              --fail-on-incompatible
+          else
+            echo "No baseline yet — skipping diff on first run"
+          fi

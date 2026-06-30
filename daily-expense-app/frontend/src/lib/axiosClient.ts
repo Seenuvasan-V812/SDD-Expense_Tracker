@@ -1,6 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { API_BASE_URL } from './apiConfig'
-import { clearTokens } from '@/features/auth/authStore'
+import { clearTokens, getAccessToken } from '@/features/auth/authStore'
 
 interface RetryConfig extends InternalAxiosRequestConfig {
   _retry?: boolean
@@ -20,6 +20,15 @@ async function doRefresh(): Promise<string | null> {
 export const axiosClient = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+})
+
+// Attach Bearer token to every request automatically
+axiosClient.interceptors.request.use((config) => {
+  const token = getAccessToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
 })
 
 axiosClient.interceptors.response.use(

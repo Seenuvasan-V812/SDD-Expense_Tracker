@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import ExpenseForm from './ExpenseForm'
-import { fetchExpenses, deleteExpense, importExpenses, exportExpensesUrl } from './api'
+import { fetchExpenses, deleteExpense, importExpenses, exportExpenses } from './api'
 import type { ExpenseResponse, ExpenseFilters } from './types'
 
 export default function ExpensesPage() {
@@ -50,10 +50,10 @@ export default function ExpensesPage() {
     e.target.value = ''
   }
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const from = filters.from ?? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
     const to = filters.to ?? new Date().toISOString().slice(0, 10)
-    window.open(exportExpensesUrl(from, to), '_blank')
+    await exportExpenses(from, to)
   }
 
   const columns: ColumnDef<ExpenseResponse>[] = [

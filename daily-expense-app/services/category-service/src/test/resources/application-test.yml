@@ -1,0 +1,10 @@
+spring:
+  kafka:
+    bootstrap-servers: "localhost:29092"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration
+
+# Disable OutboxRelayScheduler — it needs KafkaTemplate which is excluded in tests
+scheduling:
+  enabled: false

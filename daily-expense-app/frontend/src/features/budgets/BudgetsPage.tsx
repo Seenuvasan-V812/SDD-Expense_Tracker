@@ -4,88 +4,80 @@ import { Plus } from 'lucide-react'
 import LoadingState from '@/components/LoadingState'
 import ErrorState from '@/components/ErrorState'
 import EmptyState from '@/components/EmptyState'
-import MoneyDisplay from '@/components/MoneyDisplay'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Progress } from '@/components/ui/progress'
 import { Switch } from '@/components/ui/switch'
 import BudgetForm from './BudgetForm'
 import { fetchBudgets, patchActivation, patchRollover } from './api'
-import type { BudgetStatusResponse } from './types'
-
-function budgetColor(pct: number): string {
-  if (pct > 100) return 'text-danger'
-  if (pct >= 80) return 'text-warning'
-  return 'text-success'
-}
+import { fetchCategories } from '@/features/categories/api'
+import type { BudgetResponse } from './types'
 
 interface BudgetCardProps {
-  budget: BudgetStatusResponse
+  budget: BudgetResponse
+  categoryName: string | null
   onActivationChange: (active: boolean) => void
   onRolloverChange: (enabled: boolean) => void
 }
 
-function BudgetCard({ budget, onActivationChange, onRolloverChange }: BudgetCardProps) {
-  const pct = budget.percentUsed
-  const colorClass = budgetColor(pct)
+function BudgetCard({
+  budget,
+  categoryName,
+  onActivationChange,
+  onRolloverChange,
+}: BudgetCardProps) {
+  const limit = parseFloat(budget.budgetLimit)
+  const currency = budget.currency ?? 'INR'
+
+  const scopeLabel =
+    budget.scope === 'OVERALL'
+      ? 'Overall Budget'
+      : `Category: ${categoryName ?? budget.categoryId?.slice(0, 8) ?? '—'}`
 
   return (
-    <Card>
+    <Card className={budget.active ? '' : 'opacity-60'}>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">
-            {budget.scope === 'OVERALL' ? 'Overall' : `Category ${budget.categoryId ?? ''}`}
-          </CardTitle>
-          <Badge variant="outline">{budget.period}</Badge>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-base leading-snug">{scopeLabel}</CardTitle>
+          <Badge variant="outline">{budget.periodType}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>
-            <span className="text-muted-foreground">Set </span>
-            <MoneyDisplay amount={parseFloat(budget.limit.amount)} />
+        <div className="text-sm space-y-1">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Limit</span>
+            <span className="font-semibold">
+              {currency} {limit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </span>
           </div>
-          <div>
-            <span className="text-muted-foreground">Spent </span>
-            <MoneyDisplay amount={parseFloat(budget.spent.amount)} />
-          </div>
-          <div>
-            <span className="text-muted-foreground">Remaining </span>
-            <MoneyDisplay amount={parseFloat(budget.remaining.amount)} />
-          </div>
-          <div className={colorClass}>
-            <span className="font-semibold tabular-nums">{pct.toFixed(1)}%</span>
-            <span className="text-muted-foreground ml-1">used</span>
-          </div>
+          {!budget.active && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Status</span>
+              <Badge variant="secondary">Inactive</Badge>
+            </div>
+          )}
         </div>
 
-        <Progress
-          value={Math.min(pct, 100)}
-          className="h-2"
-          aria-label={`${pct.toFixed(1)}% budget used`}
-        />
-
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 pt-1">
           <div className="flex items-center gap-2">
             <Switch
-              id={`active-${budget.budgetId}`}
+              id={`active-${budget.id}`}
               checked={budget.active}
               onCheckedChange={onActivationChange}
               aria-label="Active"
             />
-            <label htmlFor={`active-${budget.budgetId}`} className="text-sm">
+            <label htmlFor={`active-${budget.id}`} className="text-sm cursor-pointer">
               Active
             </label>
           </div>
           <div className="flex items-center gap-2">
             <Switch
-              id={`rollover-${budget.budgetId}`}
+              id={`rollover-${budget.id}`}
               checked={budget.rolloverEnabled}
               onCheckedChange={onRolloverChange}
               aria-label="Rollover"
             />
-            <label htmlFor={`rollover-${budget.budgetId}`} className="text-sm">
+            <label htmlFor={`rollover-${budget.id}`} className="text-sm cursor-pointer">
               Rollover
             </label>
           </div>
@@ -103,6 +95,18 @@ export default function BudgetsPage() {
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['budgets', page],
     queryFn: () => fetchBudgets(page),
+  })
+
+  // Fetch all categories to resolve names — size=100 covers typical usage
+  const { data: catData } = useQuery({
+    queryKey: ['categories', 'ALL', 0, 100],
+    queryFn: () => fetchCategories({ page: 0, size: 100 }),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const categoryMap: Record<string, string> = {}
+  catData?.content.forEach((c) => {
+    categoryMap[c.categoryId] = c.name
   })
 
   const activationMutation = useMutation({
@@ -147,13 +151,16 @@ export default function BudgetsPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {data.content.map((budget) => (
               <BudgetCard
-                key={budget.budgetId}
+                key={budget.id}
                 budget={budget}
+                categoryName={
+                  budget.categoryId ? (categoryMap[budget.categoryId] ?? null) : null
+                }
                 onActivationChange={(active) =>
-                  activationMutation.mutate({ id: budget.budgetId, active })
+                  activationMutation.mutate({ id: budget.id, active })
                 }
                 onRolloverChange={(rolloverEnabled) =>
-                  rolloverMutation.mutate({ id: budget.budgetId, rolloverEnabled })
+                  rolloverMutation.mutate({ id: budget.id, rolloverEnabled })
                 }
               />
             ))}

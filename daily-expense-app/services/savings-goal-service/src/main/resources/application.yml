@@ -1,0 +1,58 @@
+server:
+  port: 8084
+
+spring:
+  application:
+    name: savings-goal-service
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5435/savings_goal_db}
+    username: ${SPRING_DATASOURCE_USERNAME:savings_goal_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:savings_goal_pass}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+    consumer:
+      group-id: savings-goal-service
+      auto-offset-reset: earliest
+      enable-auto-commit: true
+    listener:
+      missing-topics-fatal: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+
+jwt:
+  secret: ${JWT_SECRET}
+
+outbox:
+  relay:
+    topic: savings-goals
+    delay-ms: 5000
+
+contribution:
+  expense-service:
+    base-url: ${EXPENSE_SERVICE_BASE_URL:}
+  savings-category-id: ${SAVINGS_CATEGORY_ID:}
+
+kafka:
+  topics:
+    expenses: expenses
+
+logging:
+  pattern:
+    console: "%d{ISO8601} [%thread] %-5level %logger{36} traceId=%X{traceId} userId=%X{userId} - %msg%n"
