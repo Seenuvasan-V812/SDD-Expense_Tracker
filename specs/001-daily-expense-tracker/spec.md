@@ -62,7 +62,7 @@ Phase-1 **Aggregate Roots** and their owning service (per `05-domain-model.md` �
 | Database | PostgreSQL (one database per service: identity_db, category_db, expense_db, savings_goal_db, budget_db), Flyway migrations |
 | Message Broker | Apache Kafka + ZooKeeper (Transactional Outbox pattern — event written in same DB transaction as state change) |
 | Object Storage | MinIO (S3-compatible) — receipts and data exports; never stored on service disk |
-| Frontend | React 18 + TypeScript (strict mode, any prohibited), Vite; single shared Axios instance with transparent JWT refresh |
+| Frontend | React 18 + TypeScript (strict mode, any prohibited), Vite; single shared Axios instance with transparent JWT refresh; UI/styling/form/charting stack governed by approved registry (`15-ui-design-system.md`, FE-7) |
 | Auth | JWT (HS256) — 15 min Access Token / 7-day rotating Refresh Token stored as SHA-256 hash; BCrypt cost >= 12 |
 | Testing | JUnit 5, Mockito (unit per service class), Testcontainers (integration against real PostgreSQL per endpoint group) |
 | Containers | Docker Compose (postgres x5, minio, kafka, zookeeper, mailhog) |
@@ -95,7 +95,7 @@ Phase-1 **Aggregate Roots** and their owning service (per `05-domain-model.md` �
 
 | Order | File | What to extract for plan.md |
 |-------|------|-----------------------------|
-| 1 | `.specify/memory/constitution.md` | Governing laws v1.1.2 (P1-P7, AL-1-AL-5, API-1-API-7, SEC-1-SEC-6, CQ-1-CQ-14, FE-1-FE-6), bounded contexts, naming rules, phase gates |
+| 1 | `.specify/memory/constitution.md` | Governing laws v1.2.0 (P1-P7, AL-1-AL-5, API-1-API-7, SEC-1-SEC-6, CQ-1-CQ-14, FE-1-FE-7), bounded contexts, naming rules, phase gates |
 | 2 | `01-context-specification.md` | System boundary (C4 Level 1), external integrations (SMTP, MinIO, PostgreSQL), actor definitions (General User, Time-Based Scheduler), India-market requirements (INR, UPI, en-IN locale) |
 | 3 | `02-glossary.md` | Canonical service/entity/table/enum names — use exclusively; anti-terms are prohibited in all identifiers and contracts |
 | 4 | `03-requirement-catalogue.md` | REQ-* IDs (128 total), MoSCoW priority, Phase 1 vs Phase 2 split; cross-cutting NFRs (REQ-API, REQ-SEC, REQ-CQ, REQ-TEST, REQ-OBS, REQ-DB, REQ-FE) apply to every service |
@@ -110,6 +110,7 @@ Phase-1 **Aggregate Roots** and their owning service (per `05-domain-model.md` �
 | 13 | `12-implementation-plan.md` | Existing Phase 0-5 task breakdown with monorepo scaffold, service task sequences, and phase review gates — plan.md must align with this |
 | 14 | `13-task-breakdown.md` | Atomic TASK-001..TASK-111 execution breakdown — each task independently executable, with REQ-* traceability, Depends-On chains, and verifiable Acceptance Criteria |
 | 15 | `14-test-strategy.md` | Production-grade test strategy — risk matrix, test levels (unit/integration/contract/E2E/regression), security test catalogue, CUJs, performance targets, automation vs. manual split, and release gate criteria |
+| 16 | `15-ui-design-system.md` | Approved UI library registry (FE-7) — full package list with phase scope and constraints; design tokens; component-to-library mapping for all Phase 5 shared and feature components; Tailwind config structure; WCAG AA accessibility standards; Phase 5 compliance checklist |
 
 ---
 

@@ -58,6 +58,18 @@ Events whose only active consumer is `notification-service` or `reporting-servic
 - Messages are **retained** per Kafka topic retention policy (default: 7 days) for Phase 2 consumption.
 - Producing services write the event to the outbox in the same transaction as the state change (CQ-8) — the outbox relay is the only Phase 1 consumer.
 
+> **Phase-2 consumer list (spec.md §7 — BINDING):** Every `notification-service` consumer relationship in
+> §3–§7 is **Phase-2 deferred**. Specifically: `UserRegisteredEvent` (§3.1), `PasswordResetRequestedEvent`
+> (§3.3), `RecurringGenerationFailedEvent` (§4.6), `SavingsGoalCompletedEvent` (§5.x),
+> `BudgetThresholdReachedEvent` (§6.x), `BudgetExceededEvent` (§6.x), `WeeklyDigestDueEvent` (§7.x).
+> All `reporting-service` consumer relationships (`UserVerifiedEvent` §3.2, `ExpenseCreated/Updated/Deleted`
+> §4.1–4.3, `ContributionRecorded` §5.x, `BudgetSpendingUpdated` §6.x) are also Phase-2 deferred.
+>
+> **Phase-1 email delivery exception:** `UserRegisteredEvent` and `PasswordResetRequestedEvent` trigger
+> transactional emails **directly from `user-service`** (SMTP → mailhog in dev) in Phase 1, independent
+> of the notification-service consumer. The events are still written to the outbox for Phase-2 relay.
+> No `notification-service` consumer process exists in Phase 1 under any circumstance.
+
 ---
 
 ### 1.3 Delivery guarantees

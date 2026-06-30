@@ -345,19 +345,19 @@ cross-context reads go through `port/` adapters only (AL-2).
 
 ### Phase 6 — Cross-Service Data Export Aggregation & Business Observability  *(REQ-USR-011, REQ-OBS-006/CQ-14)*
 
-- [ ] T112 [REQ-USR-011] UserDataPort interface + DataExportAggregator (fan-out to 4 service adapters → ZIP → MinIO → READY) — `services/user-service/src/main/java/com/dailyexpense/user/port/UserDataPort.java`
+- [x] T112 [REQ-USR-011] UserDataPort interface + DataExportAggregator (fan-out to 4 service adapters → ZIP → MinIO → READY) — `services/user-service/src/main/java/com/dailyexpense/user/port/UserDataPort.java`
   - RED: `UserDataExportIT` aggregation path · AC: `UserDataPort.exportUserData(userId)` returns `UserExportSegment`; aggregator fans out to T114–T117 adapters + local user profile; ZIP uploaded to MinIO; export status→READY; `DataExportReadyEvent` written to outbox in same tx (CQ-8). Depends: T035,T014.
-- [ ] T113 [REQ-USR-011] UserDataPort contract test (all 4 adapters: AL-1 verified, 0 cross-service SQL) — `services/user-service/src/test/java/com/dailyexpense/user/port/UserDataPortContractTest.java`
+- [x] T113 [REQ-USR-011] UserDataPort contract test (all 4 adapters: AL-1 verified, 0 cross-service SQL) — `services/user-service/src/test/java/com/dailyexpense/user/port/UserDataPortContractTest.java`
   - RED: contract test per adapter · AC: each adapter returns non-null `UserExportSegment` for known userId; empty segment (not error) for userId with no data; ArchUnit confirms 0 cross-service DB reads per adapter. Depends: T112,T114,T115,T116,T117.
-- [ ] T114 [P] [REQ-USR-011] category-service internal endpoint `GET /internal/users/{userId}/export-data` + `CategoryUserDataAdapter` in user-service — `services/category-service/src/main/java/com/dailyexpense/category/port/CategoryUserDataController.java`
+- [x] T114 [P] [REQ-USR-011] category-service internal endpoint `GET /internal/users/{userId}/export-data` + `CategoryUserDataAdapter` in user-service — `services/category-service/src/main/java/com/dailyexpense/category/port/CategoryUserDataController.java`
   - RED: `CategoryIT` export-data path · AC: returns all categories (DEFAULT + owned custom) for userId; endpoint guarded by service token; no `expense_db`/`savings_goal_db`/`budget_db` SQL (AL-1). Depends: T048,T112.
-- [ ] T115 [P] [REQ-USR-011] expense-service internal endpoint `GET /internal/users/{userId}/export-data` + `ExpenseUserDataAdapter` in user-service — `services/expense-service/src/main/java/com/dailyexpense/expense/port/ExpenseUserDataController.java`
+- [x] T115 [P] [REQ-USR-011] expense-service internal endpoint `GET /internal/users/{userId}/export-data` + `ExpenseUserDataAdapter` in user-service — `services/expense-service/src/main/java/com/dailyexpense/expense/port/ExpenseUserDataController.java`
   - RED: `ExpenseIT` export-data path · AC: returns all expenses+tags+receipt-refs for userId; streamed (CQ-10, no full in-memory); no other service DB SQL (AL-1). Depends: T068,T112.
-- [ ] T116 [P] [REQ-USR-011] savings-goal-service internal endpoint `GET /internal/users/{userId}/export-data` + `SavingsGoalUserDataAdapter` in user-service — `services/savings-goal-service/src/main/java/com/dailyexpense/savingsgoal/port/SavingsGoalUserDataController.java`
+- [x] T116 [P] [REQ-USR-011] savings-goal-service internal endpoint `GET /internal/users/{userId}/export-data` + `SavingsGoalUserDataAdapter` in user-service — `services/savings-goal-service/src/main/java/com/dailyexpense/savingsgoal/port/SavingsGoalUserDataController.java`
   - RED: `SavingsGoalIT` export-data path · AC: returns all goals+contribution history for userId; no other service DB SQL (AL-1). Depends: T082,T112.
-- [ ] T117 [P] [REQ-USR-011] budget-service internal endpoint `GET /internal/users/{userId}/export-data` + `BudgetUserDataAdapter` in user-service — `services/budget-service/src/main/java/com/dailyexpense/budget/port/BudgetUserDataController.java`
+- [x] T117 [P] [REQ-USR-011] budget-service internal endpoint `GET /internal/users/{userId}/export-data` + `BudgetUserDataAdapter` in user-service — `services/budget-service/src/main/java/com/dailyexpense/budget/port/BudgetUserDataController.java`
   - RED: `BudgetIT` export-data path · AC: returns all budgets+ledger history for userId; no other service DB SQL (AL-1). Depends: T093,T112.
-- [ ] T118 [P] [REQ-OBS-006/CQ-14] Micrometer business metrics: counters `expenses.created`, `users.registered`, `budget.alerts.sent`, `goals.completed` — `services/*/src/main/java/com/dailyexpense/*/observability/BusinessMetrics.java`
+- [x] T118 [P] [REQ-OBS-006/CQ-14] Micrometer business metrics: counters `expenses.created`, `users.registered`, `budget.alerts.sent`, `goals.completed` — `services/*/src/main/java/com/dailyexpense/*/observability/BusinessMetrics.java`
   - RED: counter assertion (`GET /actuator/metrics/{name}` → `{name,measurements}`) per service · AC: counter increments after each corresponding event; `GET /actuator/metrics` index includes business counter names; 0 PII in metric tags. Depends: T057,T025,T090,T078.
 
 ---
